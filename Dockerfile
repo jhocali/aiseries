@@ -1,4 +1,4 @@
-ARG COMMANDBOX_IMAGE=ortussolutions/commandbox:boxlang-3.16.0@sha256:963093195c6dabc33c5a2bd2a765ae28d495c778744054a3462acbc3d9adec6a
+ARG COMMANDBOX_IMAGE=ortussolutions/commandbox:boxlang@sha256:3246a20c826fb54ff7c574f388ed4dfecb2e8b285ed14bd5a53bcf343c8eb24c
 FROM ${COMMANDBOX_IMAGE}
 
 ARG BUILD_DATE=unknown
