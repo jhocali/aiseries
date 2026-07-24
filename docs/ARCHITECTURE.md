@@ -311,6 +311,14 @@ Before multi-instance deployment, adopt a shared session store with encryption/a
 
 ## 10. Configuration And Deployment
 
+Selected deployment target:
+
+- Azure Container Apps Consumption is the initial low-traffic hosting target.
+- The application scales between zero and one replica; one is the hard maximum while sessions remain in memory.
+- The production image is published to GHCR and deployed from the versioned Bicep definition under `deploy/azure/`.
+- MongoDB remains external. The initial deployment may use MongoDB Atlas M0, but database ownership, backup, network allowlisting, and production suitability remain operational decisions.
+- GitHub Actions authenticates to Azure with an environment-scoped OIDC federation rather than a stored client secret.
+
 Required runtime configuration groups:
 
 - Application: name, environment, public base URL, debug flag.
@@ -351,12 +359,13 @@ Follow `TEST_STRATEGY.md` with these target boundaries:
 | ADR-006 | Treat REST/Vite resources as optional scaffolds, not production architecture. | Proposed | Neither is needed by active workflows. |
 | ADR-007 | Make schema/index changes an explicit migration step. | Proposed | Removes surprising write privileges and latency from normal requests. |
 | ADR-008 | Keep detailed diagnostics private. | Proposed | Public health should not expose infrastructure or provide schema-management actions. |
+| ADR-009 | Use Azure Container Apps Consumption as the initial cloud target. | Accepted | It runs the existing OCI image, supports scale-to-zero, and has an ongoing monthly free grant suitable for a low-traffic demonstration. |
 
 After approval, move consequential decisions into individual ADR files if the team wants a permanent decision log.
 
 ## 13. Architecture Decisions Needed
 
-1. Production hosting, ingress, secret store, logging, monitoring, and MongoDB ownership.
+1. Production logging, monitoring, and MongoDB ownership beyond the selected Azure Container Apps hosting baseline.
 2. Single-instance acceptance versus a shared-session requirement for the first release.
 3. Approved password algorithm available in the BoxLang/Java environment and its parameter policy.
 4. Map-provider approval and the required Content Security Policy/privacy notice.
@@ -364,4 +373,3 @@ After approval, move consequential decisions into individual ADR files if the te
 6. Audit retention, access, integrity, and privacy rules.
 7. Production MongoDB version, topology, authentication/TLS, backup, and restore targets.
 8. Whether `/ready` is network-private, authenticated, or both on the chosen platform.
-

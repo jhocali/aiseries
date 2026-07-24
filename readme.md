@@ -431,6 +431,8 @@ run-script docker:stack down
 
 Pull requests run TestBox and an image smoke test. Pushes to `main` publish GHCR image tags, and semantic-version tags such as `v1.2.3` also create GitHub releases.
 
+Azure Container Apps is the selected low-traffic cloud target. The versioned Bicep definition, manual GitHub OIDC deployment workflow, local deployment command, and scale-to-zero caveats are documented in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
 ## 💻 VSCode Helpers
 
 We have included two vscode helpers for you:
