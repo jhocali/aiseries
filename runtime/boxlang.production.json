@@ -1,0 +1,114 @@
+{
+    "debugMode": false,
+    "clearClassFilesOnStartup": false,
+    "classResolverCache": true,
+    "trustedCache": true,
+    "timezone": "${env.APP_TIMEZONE:UTC}",
+    "whitespaceCompressionEnabled": true,
+    "applicationTimeout": "0,0,0,0",
+    "requestTimeout": "0,0,1,0",
+    "sessionTimeout": "${env.SESSION_TIMEOUT:0,0,30,0}",
+    "sessionStorage": "memory",
+    "mappings": {
+        "/app": {
+            "path": "${user-dir}/app",
+            "external": false
+        },
+        "/public": {
+            "path": "${user-dir}/public",
+            "external": false
+        },
+        "/coldbox": {
+            "path": "${user-dir}/lib/coldbox",
+            "external": false
+        },
+        "/modules": {
+            "path": "${user-dir}/lib/modules",
+            "external": false
+        }
+    },
+    "modulesDirectory": [
+        "${user-dir}/boxlang_modules",
+        "${boxlang-home}/modules",
+        "${user-dir}/runtime/modules"
+    ],
+    "customComponentsDirectory": [
+        "${boxlang-home}/global/components",
+        "${user-dir}/runtime/global/components"
+    ],
+    "classPaths": [
+        "${boxlang-home}/global/classes",
+        "${user-dir}/runtime/global/classes"
+    ],
+    "javaLibraryPaths": [
+        "${boxlang-home}/lib",
+        "${user-dir}/lib/java"
+    ],
+    "logging": {
+        "logsDirectory": "${java-temp}/jojo-logs",
+        "maxLogDays": 7,
+        "maxFileSize": "25MB",
+        "totalCapSize": "250MB",
+        "rootLevel": "${env.LOG_LEVEL:INFO}",
+        "defaultEncoder": "json",
+        "statusPrinterOnLoad": false,
+        "loggers": {
+            "runtime": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "async": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "cache": {
+                "level": "WARN",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "datasource": {
+                "level": "WARN",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "modules": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "http": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "application": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            },
+            "scheduler": {
+                "level": "${env.LOG_LEVEL:INFO}",
+                "appender": "console",
+                "appenderArguments": {},
+                "encoder": "json",
+                "additive": false
+            }
+        }
+    }
+}

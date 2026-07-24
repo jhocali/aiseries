@@ -408,25 +408,28 @@ box server start
 
 ## 🐳 Dockerfile
 
-We have included a [`docker/Dockerfile`](docker/Dockerfile) so you can build docker containers from your source code. We have also added enhanced docker scripts in your `box.json` so you can build the docker image and run the docker image using our [CommandBox Docker](https://hub.docker.com/r/ortussolutions/commandbox) containers.
+The root [`Dockerfile`](Dockerfile) builds a production-oriented Jojo image from a pinned CommandBox/BoxLang base. It installs runtime dependencies, excludes the debugger and TestBox mappings, and emits JSON logs to the container console.
 
 ```bash
-# Build a docker **container**
+# Build the image
 run-script docker:build
-# Run the container
+# Run with local environment values
 run-script docker:run
-# Go into the container's bash prompt
+# Open a shell in the image
 run-script docker:bash
 ```
 
 ## 🐙 Docker Compose Stack
 
-We have included an improved [`docker/docker-compose.yaml`](docker/docker-compose.yml) stack that can be used to run the application in a container alongside a database. We have included support for MySQL, PostgreSQL and MSSQL. We have also included the `run-script docker:stack` command so you can compose the stack up or down with enhanced configuration and better networking.
+[`deploy/compose.production.yml`](deploy/compose.production.yml) runs one immutable Jojo image and reads the MongoDB URI from a mounted secret file. Copy `deploy/.env.production.example` to `deploy/.env.production`, create the protected URI file, and follow [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ```bash
-run-script docker:stack up
+run-script docker:stack config --quiet
+run-script docker:stack up -d
 run-script docker:stack down
 ```
+
+Pull requests run TestBox and an image smoke test. Pushes to `main` publish GHCR image tags, and semantic-version tags such as `v1.2.3` also create GitHub releases.
 
 ## 💻 VSCode Helpers
 

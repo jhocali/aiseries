@@ -16,6 +16,14 @@ class{
 	this.sessionTimeout       = createTimespan( 0, 1, 0, 0 );
 	this.setClientCookies     = true;
 	this.setDomainCookies     = true;
+	this.sessionCookie        = {
+		httpOnly     : true,
+		secure       : compareNoCase(
+			toString( getSystemSetting( "SESSION_COOKIE_SECURE", "false" ) ),
+			"true"
+		) == 0,
+		sameSiteMode : "Lax"
+	};
 	this.timezone             = "UTC";
 	this.whiteSpaceManagement = "smart";
 

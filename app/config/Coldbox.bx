@@ -21,7 +21,7 @@ class {
 			// Development Settings
 			reinitPassword           : "",
 			reinitKey                : "fwreinit",
-			handlersIndexAutoReload  : true,
+			handlersIndexAutoReload  : false,
 			// Implicit Events
 			defaultEvent             : "Main.index",
 			requestStartHandler      : "Main.onRequestStart",
@@ -43,10 +43,10 @@ class {
 			// Error/Exception Handling
 			invalidHTTPMethodHandler : "",
 			exceptionHandler         : "main.onException",
-			invalidEventHandler      : "",
+			invalidEventHandler      : "main.notFound",
 			customErrorTemplate      : "",
 			// Application Aspects
-			handlerCaching           : false,
+			handlerCaching           : true,
 			eventCaching             : false,
 			viewCaching              : false,
 			// Will automatically do a mapDirectory() on your `models` for you.
@@ -179,6 +179,8 @@ class {
 	function development(){
 		// coldbox.customErrorTemplate = "/coldbox/system/exceptions/BugReport.cfm"; // static bug reports
 		variables.coldbox.customErrorTemplate = "/coldbox/system/exceptions/Whoops.cfm"
+		variables.coldbox.handlersIndexAutoReload = true
+		variables.coldbox.handlerCaching = false
 	}
 
 }

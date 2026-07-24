@@ -18,12 +18,13 @@
         ".github/PULL_REQUEST_TEMPLATE.md"
     ],
     "dependencies":{
-        "coldbox":"^8.0.0"
+        "coldbox":"8.1.0"
     },
     "devDependencies":{
-        "testbox":"*",
-        "route-visualizer":"*",
-        "commandbox-boxlang":"*"
+        "testbox":"7.0.0",
+        "route-visualizer":"2.2.0",
+        "commandbox-boxlang":"1.22.0",
+        "testbox-cli":"1.9.0"
     },
     "installPathConventions":{
         "modules":"lib/modules"
@@ -36,10 +37,10 @@
     "scripts":{
         "format":"!boxlang format --source app/,tests/specs/,*.bx",
         "format:check":"!boxlang format --check --source app/,tests/specs/,*.bx",
-        "docker:build":"!docker build --no-cache -t my-coldbox-app -f ./docker/Dockerfile ./",
-        "docker:run":"!docker run -it -p 8080:8080 my-coldbox-app",
-        "docker:bash":"!docker run -it my-coldbox-app /bin/bash",
-        "docker:stack":"!docker compose -f docker/docker-compose.yaml ${1}"
+        "docker:build":"!docker build --pull -t jojo:local .",
+        "docker:run":"!docker run --rm -it -p 8080:8080 --env-file .env jojo:local",
+        "docker:bash":"!docker run --rm -it --entrypoint /bin/bash jojo:local",
+        "docker:stack":"!docker compose --env-file deploy/.env.production -f deploy/compose.production.yml ${1}"
     },
     "testbox":{
         "runner":"/tests/runner.bxm"

@@ -475,11 +475,18 @@ class extends="coldbox.system.EventHandler" {
 		var applicationScope = event.getValue( "applicationReference" );
 	}
 
+	function notFound( event, rc, prc ){
+		event.setHTTPHeader( statusCode = 404 );
+		prc.errorTitle   = "Page not found.";
+		prc.errorMessage = "The requested page is unavailable.";
+		event.setView( "main/error" );
+	}
+
 	function onException( event, rc, prc ){
 		event.setHTTPHeader( statusCode = 500 );
-		// Grab Exception From private request collection, placed by ColdBox Exception Handling
-		var exception = prc.exception;
-		// Place exception handler below:
+		prc.errorTitle   = "Request unavailable.";
+		prc.errorMessage = "Please try again. If the problem continues, contact your administrator.";
+		event.setView( "main/error" );
 	}
 
 	private void function requireSignedIn(){
