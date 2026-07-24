@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BOXLANG_CFENGINE: boxlang@1.15.0
+  BOXLANG_CFENGINE: boxlang@1.14.0
   COMMANDBOX_TEST_IMAGE: ortussolutions/commandbox:boxlang@sha256:3246a20c826fb54ff7c574f388ed4dfecb2e8b285ed14bd5a53bcf343c8eb24c
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
