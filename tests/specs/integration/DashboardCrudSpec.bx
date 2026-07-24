@@ -1,0 +1,197 @@
+class extends="tests.resources.BaseIntegrationSpec" {
+
+	function run(){
+		describe( "Authenticated dashboard and list pages", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+				signIn();
+				variables.mongo = installMongoMock( {
+					"users"    : sampleUsers(),
+					"contacts" : sampleContacts()
+				} );
+			} );
+
+			it( "renders dashboard totals from Mongo rows", () => {
+				var event   = this.get( route = "/", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Database overview" );
+				expect( content ).toInclude( "Users table" );
+				expect( content ).toInclude( "Contacts table" );
+				expect( variables.mongo.$once( "listUsers" ) ).toBeTrue();
+				expect( variables.mongo.$once( "listContacts" ) ).toBeTrue();
+			} );
+
+			it( "renders users from Mongo rows", () => {
+				var event   = this.get( route = "/users", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Users" );
+				expect( content ).toInclude( "ada&##x40;example.com" );
+				expect( content ).toInclude( "Ada Lovelace" );
+				expect( variables.mongo.$once( "listUsers" ) ).toBeTrue();
+			} );
+
+			it( "renders contacts from Mongo rows", () => {
+				var event   = this.get( route = "/contacts", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Contacts" );
+				expect( content ).toInclude( "Grace" );
+				expect( content ).toInclude( "Hopper" );
+				expect( content ).toInclude( "555-0100" );
+				expect( variables.mongo.$once( "listContacts" ) ).toBeTrue();
+			} );
+		} );
+
+		describe( "User form flows", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+				signIn();
+			} );
+
+			it( "renders the create user form", () => {
+				var event   = this.get( route = "/users/new", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Add user" );
+				expect( content ).toInclude( 'action="&##x2f;users"' );
+				expect( content ).toInclude( 'name="password"' );
+			} );
+
+			it( "validates required user fields", () => {
+				var event = this.post(
+					route         = "/users",
+					params        = { "username" : "", "email" : "", "roles" : "", "password" : "" },
+					renderResults = true
+				);
+
+				expect( event.getStatusCode() ).toBe( 400 );
+				expect( event.getRenderedContent() ).toInclude( "Username is required." );
+				expect( event.getRenderedContent() ).toInclude( "Password is required." );
+				expect( variables.mongo.$never( "createUser" ) ).toBeTrue();
+			} );
+
+			it( "creates a valid user through MongoService", () => {
+				var event = this.post(
+					route         = "/users",
+					params        = {
+						"username"      : "ada",
+						"email"         : "ada@example.com",
+						"firstName"     : "Ada",
+						"lastName"      : "Lovelace",
+						"roles"         : "admin",
+						"permissions"   : "users:write",
+						"password"      : "correct-password",
+						"isActive"      : "true",
+						"emailVerified" : "true"
+					},
+					renderResults = false
+				);
+
+				expect( variables.mongo.$once( "createUser" ) ).toBeTrue();
+				expect( hasRelocation( event ) ).toBeTrue();
+			} );
+
+			it( "renders the edit user form from Mongo data", () => {
+				variables.mongo = installMongoMock( { "userForEdit" : userFormFixture() } );
+
+				var event   = this.get( route = "/users/507f1f77bcf86cd799439011/edit", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Edit user" );
+				expect( content ).toInclude( "ada&##x40;example.com" );
+				expect( variables.mongo.$once( "getUserForEdit" ) ).toBeTrue();
+			} );
+
+			it( "returns not found when editing a missing user", () => {
+				var event = this.get( route = "/users/507f1f77bcf86cd799439011/edit", renderResults = true );
+
+				expect( event.getStatusCode() ).toBe( 404 );
+				expect( event.getRenderedContent() ).toInclude( "User not found." );
+			} );
+		} );
+
+		describe( "Contact form flows", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+				signIn();
+			} );
+
+			it( "renders the create contact form", () => {
+				var event   = this.get( route = "/contacts/new", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Add contact" );
+				expect( content ).toInclude( 'action="&##x2f;contacts"' );
+				expect( content ).toInclude( 'name="mobileNumber"' );
+			} );
+
+			it( "validates required contact fields", () => {
+				var event = this.post(
+					route         = "/contacts",
+					params        = {
+						"firstName"    : "",
+						"lastName"     : "",
+						"mobileNumber" : "",
+						"address"      : "",
+						"city"         : "",
+						"state"        : "",
+						"zip"          : ""
+					},
+					renderResults = true
+				);
+
+				expect( event.getStatusCode() ).toBe( 400 );
+				expect( event.getRenderedContent() ).toInclude( "First name is required." );
+				expect( event.getRenderedContent() ).toInclude( "Zip is required." );
+				expect( variables.mongo.$never( "createContact" ) ).toBeTrue();
+			} );
+
+			it( "creates a valid contact through MongoService", () => {
+				var event = this.post(
+					route         = "/contacts",
+					params        = {
+						"firstName"    : "Grace",
+						"lastName"     : "Hopper",
+						"mobileNumber" : "555-0100",
+						"address"      : "1 Navy Way",
+						"city"         : "Arlington",
+						"state"        : "VA",
+						"zip"          : "22201"
+					},
+					renderResults = false
+				);
+
+				expect( variables.mongo.$once( "createContact" ) ).toBeTrue();
+				expect( hasRelocation( event ) ).toBeTrue();
+			} );
+
+			it( "renders the edit contact form from Mongo data", () => {
+				variables.mongo = installMongoMock( { "contactForEdit" : contactFormFixture() } );
+
+				var event   = this.get( route = "/contacts/507f1f77bcf86cd799439012/edit", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Edit contact" );
+				expect( content ).toInclude( "Grace" );
+				expect( variables.mongo.$once( "getContactForEdit" ) ).toBeTrue();
+			} );
+
+			it( "returns not found when editing a missing contact", () => {
+				var event = this.get( route = "/contacts/507f1f77bcf86cd799439012/edit", renderResults = true );
+
+				expect( event.getStatusCode() ).toBe( 404 );
+				expect( event.getRenderedContent() ).toInclude( "Contact not found." );
+			} );
+		} );
+	}
+
+}

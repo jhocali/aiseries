@@ -1,0 +1,771 @@
+class extends="coldbox.system.EventHandler" {
+
+	/**
+	 * Default Action
+	 */
+	function index( event, rc, prc ){
+		prc.authUser        = structKeyExists( session, "authUser" ) ? session.authUser : {};
+		prc.loginIdentifier = event.getValue( "identifier", "" );
+		prc.dashboard       = defaultDashboardStats();
+		prc.dashboardError  = "";
+
+		if ( !structIsEmpty( prc.authUser ) ) {
+			try {
+				var mongo = getInstance( "MongoService" );
+				prc.dashboard = dashboardFromRows(
+					users    = mongo.listUsers(),
+					contacts = mongo.listContacts()
+				);
+			} catch ( any e ) {
+				prc.dashboardError = "Dashboard data is temporarily unavailable.";
+			}
+		}
+
+		event.setView( "main/index" );
+	}
+
+	function login( event, rc, prc ){
+		var identifier = trim( event.getValue( "identifier", "" ) );
+		var password   = event.getValue( "password", "" );
+
+		prc.loginIdentifier = identifier;
+
+		if ( !len( identifier ) || !len( password ) ) {
+			event.setHTTPHeader( statusCode = 400 );
+			prc.loginError = "Enter your username or email and password.";
+			event.setView( "main/index" );
+			return;
+		}
+
+		try {
+			var auth = getInstance( "MongoService" ).authenticateUser( identifier, password );
+
+			if ( !auth.authenticated ) {
+				event.setHTTPHeader( statusCode = 401 );
+				prc.loginError = auth.message;
+				event.setView( "main/index" );
+				return;
+			}
+
+			session.authUser = auth.user;
+			relocate( URI = "/" );
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 503 );
+			prc.loginError = "Login is temporarily unavailable.";
+			event.setView( "main/index" );
+		}
+	}
+
+	function logout( event, rc, prc ){
+		structDelete( session, "authUser" );
+		relocate( URI = "/" );
+	}
+
+	function userList( event, rc, prc ){
+		requireSignedIn();
+
+		prc.authUser   = structKeyExists( session, "authUser" ) ? session.authUser : {};
+		prc.users      = [];
+		prc.usersError = "";
+
+		try {
+			prc.users = getInstance( "MongoService" ).listUsers();
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 503 );
+			prc.usersError = "Unable to load users.";
+		}
+
+		event.setView( "main/users" );
+	}
+
+	function newUser( event, rc, prc ){
+		requireSignedIn();
+
+		renderUserForm(
+			event       = event,
+			prc         = prc,
+			formMode    = "create",
+			formTitle   = "Add user",
+			formAction  = "/users",
+			submitLabel = "Create user",
+			userForm    = defaultUserForm()
+		);
+	}
+
+	function createUser( event, rc, prc ){
+		requireSignedIn();
+
+		var userData = userFormFromRequest( event );
+		var errors   = validateUserForm( userData, true );
+
+		if ( arrayLen( errors ) ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderUserForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "create",
+				formTitle   = "Add user",
+				formAction  = "/users",
+				submitLabel = "Create user",
+				userForm    = userData,
+				formError   = arrayToList( errors, " " )
+			);
+			return;
+		}
+
+		try {
+			getInstance( "MongoService" ).createUser( userData );
+			relocate( URI = "/users" );
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderUserForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "create",
+				formTitle   = "Add user",
+				formAction  = "/users",
+				submitLabel = "Create user",
+				userForm    = userData,
+				formError   = "Unable to create user. Username or email may already exist."
+			);
+		}
+	}
+
+	function editUser( event, rc, prc ){
+		requireSignedIn();
+
+		var id       = event.getValue( "id", "" );
+		var userForm = getInstance( "MongoService" ).getUserForEdit( id );
+		var notFound = structIsEmpty( userForm );
+
+		if ( notFound ) {
+			event.setHTTPHeader( statusCode = 404 );
+			userForm = defaultUserForm( id );
+		}
+
+		renderUserForm(
+			event       = event,
+			prc         = prc,
+			formMode    = "edit",
+			formTitle   = "Edit user",
+			formAction  = "/users/#encodeForURL( id )#",
+			submitLabel = "Save changes",
+			userForm    = userForm,
+			formError   = notFound ? "User not found." : ""
+		);
+	}
+
+	function updateUser( event, rc, prc ){
+		requireSignedIn();
+
+		var id       = event.getValue( "id", "" );
+		var userData = userFormFromRequest( event, id );
+		var errors   = validateUserForm( userData, false );
+
+		if ( arrayLen( errors ) ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderUserForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "edit",
+				formTitle   = "Edit user",
+				formAction  = "/users/#encodeForURL( id )#",
+				submitLabel = "Save changes",
+				userForm    = userData,
+				formError   = arrayToList( errors, " " )
+			);
+			return;
+		}
+
+		try {
+			var updated = getInstance( "MongoService" ).updateUser( id, userData );
+
+			if ( !updated ) {
+				event.setHTTPHeader( statusCode = 404 );
+				renderUserForm(
+					event       = event,
+					prc         = prc,
+					formMode    = "edit",
+					formTitle   = "Edit user",
+					formAction  = "/users/#encodeForURL( id )#",
+					submitLabel = "Save changes",
+					userForm    = userData,
+					formError   = "User not found."
+				);
+				return;
+			}
+
+			if ( structKeyExists( session, "authUser" ) && session.authUser.id == id ) {
+				session.authUser.username = userData.username;
+				session.authUser.email    = userData.email;
+			}
+
+			relocate( URI = "/users" );
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderUserForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "edit",
+				formTitle   = "Edit user",
+				formAction  = "/users/#encodeForURL( id )#",
+				submitLabel = "Save changes",
+				userForm    = userData,
+				formError   = "Unable to update user. Username or email may already exist."
+			);
+		}
+	}
+
+	function deleteUser( event, rc, prc ){
+		requireSignedIn();
+
+		var id           = event.getValue( "id", "" );
+		var deletingSelf = structKeyExists( session, "authUser" ) && session.authUser.id == id;
+
+		getInstance( "MongoService" ).deleteUser( id );
+
+		if ( deletingSelf ) {
+			structDelete( session, "authUser" );
+		}
+
+		relocate( URI = deletingSelf ? "/" : "/users" );
+	}
+
+	function contactList( event, rc, prc ){
+		requireSignedIn();
+
+		prc.authUser      = structKeyExists( session, "authUser" ) ? session.authUser : {};
+		prc.contacts      = [];
+		prc.contactsError = "";
+
+		try {
+			prc.contacts = getInstance( "MongoService" ).listContacts();
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 503 );
+			prc.contactsError = "Unable to load contacts.";
+		}
+
+		event.setView( "main/contacts" );
+	}
+
+	function newContact( event, rc, prc ){
+		requireSignedIn();
+
+		renderContactForm(
+			event       = event,
+			prc         = prc,
+			formMode    = "create",
+			formTitle   = "Add contact",
+			formAction  = "/contacts",
+			submitLabel = "Create contact",
+			contactForm = defaultContactForm()
+		);
+	}
+
+	function createContact( event, rc, prc ){
+		requireSignedIn();
+
+		var contactData = contactFormFromRequest( event );
+		var errors      = validateContactForm( contactData );
+
+		if ( arrayLen( errors ) ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderContactForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "create",
+				formTitle   = "Add contact",
+				formAction  = "/contacts",
+				submitLabel = "Create contact",
+				contactForm = contactData,
+				formError   = arrayToList( errors, " " )
+			);
+			return;
+		}
+
+		try {
+			getInstance( "MongoService" ).createContact( contactData );
+			relocate( URI = "/contacts" );
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderContactForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "create",
+				formTitle   = "Add contact",
+				formAction  = "/contacts",
+				submitLabel = "Create contact",
+				contactForm = contactData,
+				formError   = "Unable to create contact."
+			);
+		}
+	}
+
+	function editContact( event, rc, prc ){
+		requireSignedIn();
+
+		var id          = event.getValue( "id", "" );
+		var contactForm = getInstance( "MongoService" ).getContactForEdit( id );
+		var notFound    = structIsEmpty( contactForm );
+
+		if ( notFound ) {
+			event.setHTTPHeader( statusCode = 404 );
+			contactForm = defaultContactForm( id );
+		}
+
+		renderContactForm(
+			event       = event,
+			prc         = prc,
+			formMode    = "edit",
+			formTitle   = "Edit contact",
+			formAction  = "/contacts/#encodeForURL( id )#",
+			submitLabel = "Save changes",
+			contactForm = contactForm,
+			formError   = notFound ? "Contact not found." : ""
+		);
+	}
+
+	function updateContact( event, rc, prc ){
+		requireSignedIn();
+
+		var id          = event.getValue( "id", "" );
+		var contactData = contactFormFromRequest( event, id );
+		var errors      = validateContactForm( contactData );
+
+		if ( arrayLen( errors ) ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderContactForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "edit",
+				formTitle   = "Edit contact",
+				formAction  = "/contacts/#encodeForURL( id )#",
+				submitLabel = "Save changes",
+				contactForm = contactData,
+				formError   = arrayToList( errors, " " )
+			);
+			return;
+		}
+
+		try {
+			var updated = getInstance( "MongoService" ).updateContact( id, contactData );
+
+			if ( !updated ) {
+				event.setHTTPHeader( statusCode = 404 );
+				renderContactForm(
+					event       = event,
+					prc         = prc,
+					formMode    = "edit",
+					formTitle   = "Edit contact",
+					formAction  = "/contacts/#encodeForURL( id )#",
+					submitLabel = "Save changes",
+					contactForm = contactData,
+					formError   = "Contact not found."
+				);
+				return;
+			}
+
+			relocate( URI = "/contacts" );
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 400 );
+			renderContactForm(
+				event       = event,
+				prc         = prc,
+				formMode    = "edit",
+				formTitle   = "Edit contact",
+				formAction  = "/contacts/#encodeForURL( id )#",
+				submitLabel = "Save changes",
+				contactForm = contactData,
+				formError   = "Unable to update contact."
+			);
+		}
+	}
+
+	function deleteContact( event, rc, prc ){
+		requireSignedIn();
+
+		getInstance( "MongoService" ).deleteContact( event.getValue( "id", "" ) );
+		relocate( URI = "/contacts" );
+	}
+
+	/**
+	 * Produce some restfulf data
+	 */
+	function data( event, rc, prc ){
+		return [
+			{ "id" : createUUID(), "name" : "Luis" },
+			{ "id" : createUUID(), "name" : "Joe" },
+			{ "id" : createUUID(), "name" : "Bob" },
+			{ "id" : createUUID(), "name" : "Darth" }
+		];
+	}
+
+	function mongoPing( event, rc, prc ){
+		var mongo = getInstance( "MongoService" );
+
+		try {
+			return {
+				"connected"  : true,
+				"datasource" : mongo.getDatasourceName(),
+				"database"   : mongo.getDatabaseName(),
+				"result"     : mongo.ping()
+			};
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 503 );
+
+			return {
+				"connected"  : false,
+				"datasource" : mongo.getDatasourceName(),
+				"database"   : mongo.getDatabaseName(),
+				"message"    : e.message
+			};
+		}
+	}
+
+	function loginTable( event, rc, prc ){
+		var mongo = getInstance( "MongoService" );
+
+		try {
+			return {
+				"created"    : true,
+				"datasource" : mongo.getDatasourceName(),
+				"schema"     : mongo.ensureLoginCollection()
+			};
+		} catch ( any e ) {
+			event.setHTTPHeader( statusCode = 503 );
+
+			return {
+				"created"    : false,
+				"datasource" : mongo.getDatasourceName(),
+				"database"   : mongo.getDatabaseName(),
+				"message"    : e.message
+			};
+		}
+	}
+
+	/**
+	 * Relocation example
+	 */
+	function doSomething( event, rc, prc ){
+		relocate( "main.index" );
+	}
+
+	/**
+	 * --------------------------------------------------------------------------
+	 * Implicit Actions
+	 * --------------------------------------------------------------------------
+	 * All the implicit actions below MUST be declared in the config/Coldbox.cfc in order to fire.
+	 * https://coldbox.ortusbooks.com/getting-started/configuration/coldbox.cfc/configuration-directives/coldbox#implicit-event-settings
+	 */
+
+	function onAppInit( event, rc, prc ){
+	}
+
+	function onRequestStart( event, rc, prc ){
+	}
+
+	function onRequestEnd( event, rc, prc ){
+	}
+
+	function onSessionStart( event, rc, prc ){
+	}
+
+	function onSessionEnd( event, rc, prc ){
+		var sessionScope     = event.getValue( "sessionReference" );
+		var applicationScope = event.getValue( "applicationReference" );
+	}
+
+	function onException( event, rc, prc ){
+		event.setHTTPHeader( statusCode = 500 );
+		// Grab Exception From private request collection, placed by ColdBox Exception Handling
+		var exception = prc.exception;
+		// Place exception handler below:
+	}
+
+	private void function requireSignedIn(){
+		if ( !structKeyExists( session, "authUser" ) || structIsEmpty( session.authUser ) ) {
+			relocate( URI = "/" );
+		}
+	}
+
+	private void function renderUserForm(
+		required any event,
+		required struct prc,
+		required string formMode,
+		required string formTitle,
+		required string formAction,
+		required string submitLabel,
+		required struct userForm,
+		string formError = ""
+	){
+		arguments.prc.authUser    = structKeyExists( session, "authUser" ) ? session.authUser : {};
+		arguments.prc.formMode    = arguments.formMode;
+		arguments.prc.formTitle   = arguments.formTitle;
+		arguments.prc.formAction  = arguments.formAction;
+		arguments.prc.submitLabel = arguments.submitLabel;
+		arguments.prc.userForm    = arguments.userForm;
+		arguments.prc.formError   = arguments.formError;
+
+		arguments.event.setView( "main/userForm" );
+	}
+
+	private void function renderContactForm(
+		required any event,
+		required struct prc,
+		required string formMode,
+		required string formTitle,
+		required string formAction,
+		required string submitLabel,
+		required struct contactForm,
+		string formError = ""
+	){
+		arguments.prc.authUser    = structKeyExists( session, "authUser" ) ? session.authUser : {};
+		arguments.prc.formMode    = arguments.formMode;
+		arguments.prc.formTitle   = arguments.formTitle;
+		arguments.prc.formAction  = arguments.formAction;
+		arguments.prc.submitLabel = arguments.submitLabel;
+		arguments.prc.contactForm = arguments.contactForm;
+		arguments.prc.formError   = arguments.formError;
+
+		arguments.event.setView( "main/contactForm" );
+	}
+
+	private struct function defaultUserForm( string id = "" ){
+		return {
+			"id"            : arguments.id,
+			"username"      : "",
+			"email"         : "",
+			"firstName"     : "",
+			"lastName"      : "",
+			"roles"         : "user",
+			"permissions"   : "",
+			"isActive"      : true,
+			"emailVerified" : true,
+			"password"      : ""
+		};
+	}
+
+	private struct function defaultContactForm( string id = "" ){
+		return {
+			"id"           : arguments.id,
+			"firstName"    : "",
+			"lastName"     : "",
+			"mobileNumber" : "",
+			"address"      : "",
+			"city"         : "",
+			"state"        : "",
+			"zip"          : ""
+		};
+	}
+
+	private struct function defaultDashboardStats(){
+		return {
+			"userTotal"           : 0,
+			"contactTotal"        : 0,
+			"totalRecords"        : 0,
+			"userActive"          : 0,
+			"userInactive"        : 0,
+			"userVerified"        : 0,
+			"userUnverified"      : 0,
+			"userActivePercent"   : 0,
+			"userVerifiedPercent" : 0,
+			"tableBars"           : [],
+			"userBars"            : [],
+			"stateBars"           : []
+		};
+	}
+
+	private struct function dashboardFromRows( required array users, required array contacts ){
+		var stats       = defaultDashboardStats();
+		var stateCounts = {};
+		var stateOrder  = [];
+
+		stats.userTotal    = arrayLen( arguments.users );
+		stats.contactTotal = arrayLen( arguments.contacts );
+		stats.totalRecords = stats.userTotal + stats.contactTotal;
+
+		for ( var user in arguments.users ) {
+			if ( structKeyExists( user, "isActive" ) && user.isActive == "true" ) {
+				stats.userActive++;
+			}
+
+			if ( structKeyExists( user, "emailVerified" ) && user.emailVerified == "true" ) {
+				stats.userVerified++;
+			}
+		}
+
+		stats.userInactive        = stats.userTotal - stats.userActive;
+		stats.userUnverified      = stats.userTotal - stats.userVerified;
+		stats.userActivePercent   = percentOf( stats.userActive, stats.userTotal );
+		stats.userVerifiedPercent = percentOf( stats.userVerified, stats.userTotal );
+
+		var maxTableCount = stats.userTotal > stats.contactTotal ? stats.userTotal : stats.contactTotal;
+		if ( maxTableCount < 1 ) {
+			maxTableCount = 1;
+		}
+
+		stats.tableBars.append( {
+			"label"   : "Users",
+			"count"   : stats.userTotal,
+			"percent" : percentOf( stats.userTotal, maxTableCount ),
+			"tone"    : "users",
+			"href"    : "/users"
+		} );
+		stats.tableBars.append( {
+			"label"   : "Contacts",
+			"count"   : stats.contactTotal,
+			"percent" : percentOf( stats.contactTotal, maxTableCount ),
+			"tone"    : "contacts",
+			"href"    : "/contacts"
+		} );
+
+		stats.userBars.append( {
+			"label"   : "Active",
+			"count"   : stats.userActive,
+			"percent" : stats.userActivePercent,
+			"tone"    : "active"
+		} );
+		stats.userBars.append( {
+			"label"   : "Inactive",
+			"count"   : stats.userInactive,
+			"percent" : percentOf( stats.userInactive, stats.userTotal ),
+			"tone"    : "inactive"
+		} );
+		stats.userBars.append( {
+			"label"   : "Verified",
+			"count"   : stats.userVerified,
+			"percent" : stats.userVerifiedPercent,
+			"tone"    : "verified"
+		} );
+
+		for ( var contact in arguments.contacts ) {
+			var state = structKeyExists( contact, "state" ) ? uCase( trim( contact.state ) ) : "";
+			state = len( state ) ? state : "Not set";
+
+			if ( !structKeyExists( stateCounts, state ) ) {
+				stateCounts[ state ] = 0;
+				stateOrder.append( state );
+			}
+
+			stateCounts[ state ]++;
+		}
+
+		for ( var state in stateOrder ) {
+			stats.stateBars.append( {
+				"label"   : state,
+				"count"   : stateCounts[ state ],
+				"percent" : percentOf( stateCounts[ state ], stats.contactTotal ),
+				"tone"    : "state"
+			} );
+		}
+
+		return stats;
+	}
+
+	private struct function userFormFromRequest( required any event, string id = "" ){
+		return {
+			"id"            : arguments.id,
+			"username"      : trim( arguments.event.getValue( "username", "" ) ),
+			"email"         : trim( arguments.event.getValue( "email", "" ) ),
+			"firstName"     : trim( arguments.event.getValue( "firstName", "" ) ),
+			"lastName"      : trim( arguments.event.getValue( "lastName", "" ) ),
+			"roles"         : trim( arguments.event.getValue( "roles", "" ) ),
+			"permissions"   : trim( arguments.event.getValue( "permissions", "" ) ),
+			"isActive"      : truthy( arguments.event.getValue( "isActive", "false" ) ),
+			"emailVerified" : truthy( arguments.event.getValue( "emailVerified", "false" ) ),
+			"password"      : arguments.event.getValue( "password", "" )
+		};
+	}
+
+	private struct function contactFormFromRequest( required any event, string id = "" ){
+		return {
+			"id"           : arguments.id,
+			"firstName"    : trim( arguments.event.getValue( "firstName", "" ) ),
+			"lastName"     : trim( arguments.event.getValue( "lastName", "" ) ),
+			"mobileNumber" : trim( arguments.event.getValue( "mobileNumber", "" ) ),
+			"address"      : trim( arguments.event.getValue( "address", "" ) ),
+			"city"         : trim( arguments.event.getValue( "city", "" ) ),
+			"state"        : trim( arguments.event.getValue( "state", "" ) ),
+			"zip"          : trim( arguments.event.getValue( "zip", "" ) )
+		};
+	}
+
+	private array function validateUserForm( required struct userData, required boolean requirePassword ){
+		var errors = [];
+
+		if ( !len( arguments.userData.username ) ) {
+			errors.append( "Username is required." );
+		}
+
+		if ( !len( arguments.userData.email ) ) {
+			errors.append( "Email is required." );
+		}
+
+		if ( arguments.requirePassword && !len( trim( arguments.userData.password ) ) ) {
+			errors.append( "Password is required." );
+		}
+
+		if ( !len( arguments.userData.roles ) ) {
+			errors.append( "At least one role is required." );
+		}
+
+		return errors;
+	}
+
+	private array function validateContactForm( required struct contactData ){
+		var errors = [];
+
+		if ( !len( arguments.contactData.firstName ) ) {
+			errors.append( "First name is required." );
+		}
+
+		if ( !len( arguments.contactData.lastName ) ) {
+			errors.append( "Last name is required." );
+		}
+
+		if ( !len( arguments.contactData.mobileNumber ) ) {
+			errors.append( "Mobile number is required." );
+		}
+
+		if ( !len( arguments.contactData.address ) ) {
+			errors.append( "Address is required." );
+		}
+
+		if ( !len( arguments.contactData.city ) ) {
+			errors.append( "City is required." );
+		}
+
+		if ( !len( arguments.contactData.state ) ) {
+			errors.append( "State is required." );
+		}
+
+		if ( !len( arguments.contactData.zip ) ) {
+			errors.append( "Zip is required." );
+		}
+
+		return errors;
+	}
+
+	private boolean function truthy( value ){
+		return listFindNoCase( "true,1,yes,on", toString( arguments.value ) ) > 0;
+	}
+
+	private numeric function percentOf( required numeric value, required numeric total ){
+		if ( arguments.total <= 0 ) {
+			return 0;
+		}
+
+		var percent = ( arguments.value * 100 ) / arguments.total;
+
+		if ( percent < 0 ) {
+			return 0;
+		}
+
+		if ( percent > 100 ) {
+			return 100;
+		}
+
+		return int( percent + 0.5 );
+	}
+
+}

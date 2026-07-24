@@ -1,0 +1,47 @@
+{
+    "name":"jojo",
+    "version":"1.0.0",
+    "author":"You",
+    "location":"forgeboxStorage",
+    "slug":"jojo",
+    "createPackageDirectory":false,
+    "type":"mvc",
+    "language":"boxlang",
+    "keywords":"boxlang",
+    "shortDescription":"A ColdBox application using BoxLang",
+    "ignore":[
+        "changelog.md",
+        ".github/ISSUE_TEMPLATE",
+        ".github/workflows/*",
+        ".github/CONTRIBUTING.md",
+        ".github/FUNDING.YML",
+        ".github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "dependencies":{
+        "coldbox":"^8.0.0"
+    },
+    "devDependencies":{
+        "testbox":"*",
+        "route-visualizer":"*",
+        "commandbox-boxlang":"*"
+    },
+    "installPathConventions":{
+        "modules":"lib/modules"
+    },
+    "installPaths":{
+        "coldbox":"lib/coldbox/",
+        "testbox":"lib/testbox/",
+        "route-visualizer":"lib/modules/route-visualizer/"
+    },
+    "scripts":{
+        "format":"!boxlang format --source app/,tests/specs/,*.bx",
+        "format:check":"!boxlang format --check --source app/,tests/specs/,*.bx",
+        "docker:build":"!docker build --no-cache -t my-coldbox-app -f ./docker/Dockerfile ./",
+        "docker:run":"!docker run -it -p 8080:8080 my-coldbox-app",
+        "docker:bash":"!docker run -it my-coldbox-app /bin/bash",
+        "docker:stack":"!docker compose -f docker/docker-compose.yaml ${1}"
+    },
+    "testbox":{
+        "runner":"/tests/runner.bxm"
+    }
+}

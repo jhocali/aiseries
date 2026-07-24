@@ -1,0 +1,623 @@
+class {
+
+	function init(){
+		variables.datasourceName = getSystemSetting( "MONGODB_DATASOURCE", "jomongo" );
+		variables.uri            = getSystemSetting(
+			"MONGODB_URI",
+			"mongodb://127.0.0.1:27017/?connectTimeoutMS=2000&serverSelectionTimeoutMS=2000"
+		);
+		variables.databaseName   = getSystemSetting( "MONGODB_DATABASE", variables.datasourceName );
+		variables.client         = createObject( "java", "com.mongodb.client.MongoClients" ).create( variables.uri );
+		variables.database       = variables.client.getDatabase( variables.databaseName );
+
+		return this;
+	}
+
+	function getClient(){
+		return variables.client;
+	}
+
+	function getDatabase(){
+		return variables.database;
+	}
+
+	function getDatabaseName(){
+		return variables.databaseName;
+	}
+
+	function getDatasourceName(){
+		return variables.datasourceName;
+	}
+
+	function getCollection( required string name ){
+		return variables.database.getCollection( arguments.name );
+	}
+
+	function ensureLoginCollection(){
+		var collectionName = "users";
+
+		if ( !collectionExists( collectionName ) ) {
+			variables.database.createCollection( collectionName );
+		}
+
+		var users = getCollection( collectionName );
+
+		createIndex( users, "email", "ux_users_email", true, false );
+		createIndex( users, "username", "ux_users_username", true, true );
+		createIndex( users, "isActive", "ix_users_is_active", false, false );
+		createIndex( users, "createdAt", "ix_users_created_at", false, false );
+		createIndex( users, "passwordResetTokenHash", "ix_users_password_reset_token_hash", false, true );
+
+		return {
+			"collection" : collectionName,
+			"database"   : variables.databaseName,
+			"fields"     : [
+				{ "name" : "_id", "type" : "ObjectId", "required" : true },
+				{ "name" : "email", "type" : "string", "required" : true, "unique" : true },
+				{ "name" : "username", "type" : "string", "required" : false, "unique" : true },
+				{ "name" : "passwordHash", "type" : "string", "required" : true },
+				{ "name" : "firstName", "type" : "string", "required" : false },
+				{ "name" : "lastName", "type" : "string", "required" : false },
+				{ "name" : "roles", "type" : "array", "required" : false },
+				{ "name" : "permissions", "type" : "array", "required" : false },
+				{ "name" : "isActive", "type" : "boolean", "required" : true },
+				{ "name" : "emailVerified", "type" : "boolean", "required" : true },
+				{ "name" : "lastLoginAt", "type" : "date", "required" : false },
+				{ "name" : "passwordResetTokenHash", "type" : "string", "required" : false },
+				{ "name" : "passwordResetExpiresAt", "type" : "date", "required" : false },
+				{ "name" : "createdAt", "type" : "date", "required" : true },
+				{ "name" : "updatedAt", "type" : "date", "required" : true }
+			],
+			"indexes"    : [
+				"_id_",
+				"ux_users_email",
+				"ux_users_username",
+				"ix_users_is_active",
+				"ix_users_created_at",
+				"ix_users_password_reset_token_hash"
+			]
+		};
+	}
+
+	function seedLoginUser(
+		required string username,
+		required string email,
+		required string password,
+		required string role,
+		boolean isActive = true,
+		boolean emailVerified = true
+	){
+		ensureLoginCollection();
+
+		var users       = getCollection( "users" );
+		var now         = createObject( "java", "java.util.Date" ).init();
+		var roles       = createObject( "java", "java.util.ArrayList" ).init();
+		var permissions = createObject( "java", "java.util.ArrayList" ).init();
+		var cleanEmail  = lcase( trim( arguments.email ) );
+		var cleanUser   = trim( arguments.username );
+
+		roles.add( arguments.role );
+
+		var fields = makeDocument();
+		fields.put( "username", cleanUser );
+		fields.put( "email", cleanEmail );
+		fields.put( "passwordHash", hashPassword( arguments.password ) );
+		fields.put( "roles", roles );
+		fields.put( "permissions", permissions );
+		fields.put( "isActive", arguments.isActive );
+		fields.put( "emailVerified", arguments.emailVerified );
+		fields.put( "updatedAt", now );
+
+		var insertFields = makeDocument();
+		insertFields.put( "createdAt", now );
+
+		var update = makeDocument();
+		update.put( "$set", fields );
+		update.put( "$setOnInsert", insertFields );
+
+		var options = createObject( "java", "com.mongodb.client.model.UpdateOptions" ).init();
+		options.upsert( true );
+
+		var result = users.updateOne( makeDocumentWith( "email", cleanEmail ), update, options );
+
+		return {
+			"username"         : cleanUser,
+			"email"            : cleanEmail,
+			"roles"            : [ arguments.role ],
+			"isActive"         : arguments.isActive,
+			"emailVerified"    : arguments.emailVerified,
+			"passwordStoredAs" : "passwordHash",
+			"passwordHashType" : "sha256-iterated",
+			"inserted"         : !isNull( result.getUpsertedId() ),
+			"matchedCount"     : result.getMatchedCount(),
+			"modifiedCount"    : result.getModifiedCount()
+		};
+	}
+
+	function authenticateUser( required string identifier, required string password ){
+		var users         = getCollection( "users" );
+		var identity      = lcase( trim( arguments.identifier ) );
+		var identityQuery = createObject( "java", "java.util.ArrayList" ).init();
+
+		identityQuery.add( makeDocumentWith( "email", identity ) );
+		identityQuery.add( makeDocumentWith( "username", identity ) );
+
+		var query = makeDocument();
+		query.put( "$or", identityQuery );
+		query.put( "isActive", true );
+
+		var user = users.find( query ).first();
+
+		if ( isNull( user ) || !verifyPassword( arguments.password, user.getString( "passwordHash" ) ) ) {
+			return {
+				"authenticated" : false,
+				"message"       : "Invalid username, email, or password."
+			};
+		}
+
+		if ( !user.getBoolean( "emailVerified" ) ) {
+			return {
+				"authenticated" : false,
+				"message"       : "Please verify your email before signing in."
+			};
+		}
+
+		var now    = createObject( "java", "java.util.Date" ).init();
+		var fields = makeDocument();
+		fields.put( "lastLoginAt", now );
+		fields.put( "updatedAt", now );
+
+		var update = makeDocument();
+		update.put( "$set", fields );
+
+		users.updateOne( makeDocumentWith( "_id", user.get( "_id" ) ), update );
+
+		return {
+			"authenticated" : true,
+			"user"          : {
+				"id"            : user.get( "_id" ).toString(),
+				"username"      : user.getString( "username" ),
+				"email"         : user.getString( "email" ),
+				"roles"         : user.get( "roles" ),
+				"isActive"      : user.getBoolean( "isActive" ),
+				"emailVerified" : user.getBoolean( "emailVerified" )
+			}
+		};
+	}
+
+	function listUsers(){
+		ensureLoginCollection();
+
+		var projection = makeDocument();
+		projection.put( "passwordHash", javaCast( "int", 0 ) );
+		projection.put( "passwordResetTokenHash", javaCast( "int", 0 ) );
+
+		var users = getCollection( "users" )
+			.find()
+			.projection( projection )
+			.sort( makeDocumentWith( "createdAt", javaCast( "int", 1 ) ) )
+			.into( createObject( "java", "java.util.ArrayList" ).init() );
+		var rows = [];
+
+		for ( var user in users ) {
+			var firstName = stringValue( user.getString( "firstName" ) );
+			var lastName  = stringValue( user.getString( "lastName" ) );
+
+			rows.append( {
+				"id"            : user.get( "_id" ).toString(),
+				"username"      : stringValue( user.getString( "username" ) ),
+				"email"         : stringValue( user.getString( "email" ) ),
+				"firstName"     : firstName,
+				"lastName"      : lastName,
+				"name"          : trim( firstName & " " & lastName ),
+				"roles"         : collectionToList( user.get( "roles" ) ),
+				"permissions"   : collectionToList( user.get( "permissions" ) ),
+				"isActive"      : booleanText( user.getBoolean( "isActive" ) ),
+				"emailVerified" : booleanText( user.getBoolean( "emailVerified" ) ),
+				"lastLoginAt"   : dateText( user.get( "lastLoginAt" ) ),
+				"createdAt"     : dateText( user.get( "createdAt" ) )
+			} );
+		}
+
+		return rows;
+	}
+
+	function getUserForEdit( required string id ){
+		ensureLoginCollection();
+
+		var user = getCollection( "users" )
+			.find( makeDocumentWith( "_id", objectId( arguments.id ) ) )
+			.first();
+
+		return isNull( user ) ? {} : userToForm( user );
+	}
+
+	function createUser( required struct userData ){
+		ensureLoginCollection();
+
+		var now  = createObject( "java", "java.util.Date" ).init();
+		var user = makeUserDocument( arguments.userData, true );
+
+		user.put( "createdAt", now );
+		user.put( "updatedAt", now );
+
+		getCollection( "users" ).insertOne( user );
+
+		return user.get( "_id" ).toString();
+	}
+
+	function updateUser( required string id, required struct userData ){
+		ensureLoginCollection();
+
+		var fields = makeUserDocument( arguments.userData, false );
+		fields.put( "updatedAt", createObject( "java", "java.util.Date" ).init() );
+
+		var update = makeDocument();
+		update.put( "$set", fields );
+
+		var result = getCollection( "users" ).updateOne( makeDocumentWith( "_id", objectId( arguments.id ) ), update );
+
+		return result.getMatchedCount() > 0;
+	}
+
+	function deleteUser( required string id ){
+		ensureLoginCollection();
+
+		var result = getCollection( "users" ).deleteOne( makeDocumentWith( "_id", objectId( arguments.id ) ) );
+
+		return result.getDeletedCount() > 0;
+	}
+
+	function ensureContactsCollection(){
+		var collectionName = "contacts";
+
+		if ( !collectionExists( collectionName ) ) {
+			variables.database.createCollection( collectionName );
+		}
+
+		var contacts = getCollection( collectionName );
+
+		createIndex( contacts, "lastName", "ix_contacts_last_name", false, false );
+		createIndex( contacts, "city", "ix_contacts_city", false, false );
+		createIndex( contacts, "state", "ix_contacts_state", false, false );
+		createIndex( contacts, "zip", "ix_contacts_zip", false, false );
+		createIndex( contacts, "createdAt", "ix_contacts_created_at", false, false );
+
+		return {
+			"collection" : collectionName,
+			"database"   : variables.databaseName,
+			"fields"     : [
+				{ "name" : "_id", "type" : "ObjectId", "required" : true },
+				{ "name" : "firstName", "type" : "string", "required" : true },
+				{ "name" : "lastName", "type" : "string", "required" : true },
+				{ "name" : "mobileNumber", "type" : "string", "required" : true },
+				{ "name" : "address", "type" : "string", "required" : true },
+				{ "name" : "city", "type" : "string", "required" : true },
+				{ "name" : "state", "type" : "string", "required" : true },
+				{ "name" : "zip", "type" : "string", "required" : true },
+				{ "name" : "createdAt", "type" : "date", "required" : true },
+				{ "name" : "updatedAt", "type" : "date", "required" : true }
+			],
+			"indexes"    : [
+				"_id_",
+				"ix_contacts_last_name",
+				"ix_contacts_city",
+				"ix_contacts_state",
+				"ix_contacts_zip",
+				"ix_contacts_created_at"
+			]
+		};
+	}
+
+	function listContacts(){
+		ensureContactsCollection();
+
+		var sort = makeDocument();
+		sort.put( "lastName", javaCast( "int", 1 ) );
+		sort.put( "firstName", javaCast( "int", 1 ) );
+		sort.put( "createdAt", javaCast( "int", 1 ) );
+
+		var contacts = getCollection( "contacts" )
+			.find()
+			.sort( sort )
+			.into( createObject( "java", "java.util.ArrayList" ).init() );
+		var rows = [];
+
+		for ( var contact in contacts ) {
+			var firstName = stringValue( contact.getString( "firstName" ) );
+			var lastName  = stringValue( contact.getString( "lastName" ) );
+			var address   = stringValue( contact.getString( "address" ) );
+			var city      = stringValue( contact.getString( "city" ) );
+			var state     = stringValue( contact.getString( "state" ) );
+			var zip       = stringValue( contact.getString( "zip" ) );
+
+			rows.append( {
+				"id"           : contact.get( "_id" ).toString(),
+				"firstName"    : firstName,
+				"lastName"     : lastName,
+				"name"         : trim( firstName & " " & lastName ),
+				"mobileNumber" : stringValue( contact.getString( "mobileNumber" ) ),
+				"address"      : address,
+				"city"         : city,
+				"state"        : state,
+				"zip"          : zip,
+				"fullAddress"  : contactAddress( address, city, state, zip ),
+				"createdAt"    : dateText( contact.get( "createdAt" ) )
+			} );
+		}
+
+		return rows;
+	}
+
+	function getContactForEdit( required string id ){
+		ensureContactsCollection();
+
+		var contact = getCollection( "contacts" )
+			.find( makeDocumentWith( "_id", objectId( arguments.id ) ) )
+			.first();
+
+		return isNull( contact ) ? {} : contactToForm( contact );
+	}
+
+	function createContact( required struct contactData ){
+		ensureContactsCollection();
+
+		var now     = createObject( "java", "java.util.Date" ).init();
+		var contact = makeContactDocument( arguments.contactData );
+
+		contact.put( "createdAt", now );
+		contact.put( "updatedAt", now );
+
+		getCollection( "contacts" ).insertOne( contact );
+
+		return contact.get( "_id" ).toString();
+	}
+
+	function updateContact( required string id, required struct contactData ){
+		ensureContactsCollection();
+
+		var fields = makeContactDocument( arguments.contactData );
+		fields.put( "updatedAt", createObject( "java", "java.util.Date" ).init() );
+
+		var update = makeDocument();
+		update.put( "$set", fields );
+
+		var result = getCollection( "contacts" ).updateOne( makeDocumentWith( "_id", objectId( arguments.id ) ), update );
+
+		return result.getMatchedCount() > 0;
+	}
+
+	function deleteContact( required string id ){
+		ensureContactsCollection();
+
+		var result = getCollection( "contacts" ).deleteOne( makeDocumentWith( "_id", objectId( arguments.id ) ) );
+
+		return result.getDeletedCount() > 0;
+	}
+
+	function ping(){
+		var command = createObject( "java", "org.bson.Document" ).init( "ping", javaCast( "int", 1 ) );
+		var result  = variables.database.runCommand( command );
+
+		return jsonDeserialize( result.toJson() );
+	}
+
+	function close(){
+		variables.client.close();
+	}
+
+	private boolean function collectionExists( required string name ){
+		var collectionNames = variables.database
+			.listCollectionNames()
+			.into( createObject( "java", "java.util.ArrayList" ).init() );
+
+		return collectionNames.contains( arguments.name );
+	}
+
+	private any function makeDocument(){
+		return createObject( "java", "org.bson.Document" ).init();
+	}
+
+	private any function makeDocumentWith( required string key, required any value ){
+		var document = makeDocument();
+		document.put( arguments.key, arguments.value );
+
+		return document;
+	}
+
+	private any function objectId( required string id ){
+		return createObject( "java", "org.bson.types.ObjectId" ).init( arguments.id );
+	}
+
+	private any function makeUserDocument( required struct userData, required boolean requirePassword ){
+		var user = makeDocument();
+
+		user.put( "username", trim( arguments.userData.username ) );
+		user.put( "email", lcase( trim( arguments.userData.email ) ) );
+		user.put( "firstName", trim( arguments.userData.firstName ) );
+		user.put( "lastName", trim( arguments.userData.lastName ) );
+		user.put( "roles", listToJavaArray( arguments.userData.roles ) );
+		user.put( "permissions", listToJavaArray( arguments.userData.permissions ) );
+		user.put( "isActive", arguments.userData.isActive );
+		user.put( "emailVerified", arguments.userData.emailVerified );
+
+		if ( arguments.requirePassword || len( trim( arguments.userData.password ) ) ) {
+			user.put( "passwordHash", hashPassword( arguments.userData.password ) );
+		}
+
+		return user;
+	}
+
+	private struct function userToForm( required any user ){
+		return {
+			"id"            : arguments.user.get( "_id" ).toString(),
+			"username"      : stringValue( arguments.user.getString( "username" ) ),
+			"email"         : stringValue( arguments.user.getString( "email" ) ),
+			"firstName"     : stringValue( arguments.user.getString( "firstName" ) ),
+			"lastName"      : stringValue( arguments.user.getString( "lastName" ) ),
+			"roles"         : collectionToList( arguments.user.get( "roles" ) ),
+			"permissions"   : collectionToList( arguments.user.get( "permissions" ) ),
+			"isActive"      : booleanValue( arguments.user.getBoolean( "isActive" ), true ),
+			"emailVerified" : booleanValue( arguments.user.getBoolean( "emailVerified" ), true ),
+			"password"      : ""
+		};
+	}
+
+	private any function makeContactDocument( required struct contactData ){
+		var contact = makeDocument();
+
+		contact.put( "firstName", trim( arguments.contactData.firstName ) );
+		contact.put( "lastName", trim( arguments.contactData.lastName ) );
+		contact.put( "mobileNumber", trim( arguments.contactData.mobileNumber ) );
+		contact.put( "address", trim( arguments.contactData.address ) );
+		contact.put( "city", trim( arguments.contactData.city ) );
+		contact.put( "state", trim( arguments.contactData.state ) );
+		contact.put( "zip", trim( arguments.contactData.zip ) );
+
+		return contact;
+	}
+
+	private struct function contactToForm( required any contact ){
+		return {
+			"id"           : arguments.contact.get( "_id" ).toString(),
+			"firstName"    : stringValue( arguments.contact.getString( "firstName" ) ),
+			"lastName"     : stringValue( arguments.contact.getString( "lastName" ) ),
+			"mobileNumber" : stringValue( arguments.contact.getString( "mobileNumber" ) ),
+			"address"      : stringValue( arguments.contact.getString( "address" ) ),
+			"city"         : stringValue( arguments.contact.getString( "city" ) ),
+			"state"        : stringValue( arguments.contact.getString( "state" ) ),
+			"zip"          : stringValue( arguments.contact.getString( "zip" ) )
+		};
+	}
+
+	private string function contactAddress(
+		required string address,
+		required string city,
+		required string state,
+		required string zip
+	){
+		var parts = [];
+
+		if ( len( arguments.address ) ) {
+			parts.append( arguments.address );
+		}
+
+		if ( len( arguments.city ) ) {
+			parts.append( arguments.city );
+		}
+
+		if ( len( arguments.state ) ) {
+			parts.append( arguments.state );
+		}
+
+		if ( len( arguments.zip ) ) {
+			parts.append( arguments.zip );
+		}
+
+		return arrayToList( parts, ", " );
+	}
+
+	private string function hashPassword( required string password ){
+		var iterations = 120000;
+		var salt       = replace( createUUID(), "-", "", "all" );
+		var digest     = arguments.password & ":" & salt;
+
+		for ( var i = 1; i <= iterations; i++ ) {
+			digest = hash( digest, "SHA-256" );
+		}
+
+		return "sha256-iterated$#iterations#$#salt#$#digest#";
+	}
+
+	private string function stringValue( value ){
+		return isNull( arguments.value ) ? "" : toString( arguments.value );
+	}
+
+	private string function booleanText( value ){
+		return isNull( arguments.value ) ? "" : ( arguments.value ? "true" : "false" );
+	}
+
+	private boolean function booleanValue( value, boolean defaultValue = false ){
+		return isNull( arguments.value ) ? arguments.defaultValue : arguments.value;
+	}
+
+	private string function dateText( value ){
+		if ( isNull( arguments.value ) ) {
+			return "";
+		}
+
+		return createObject( "java", "java.text.SimpleDateFormat" )
+			.init( "yyyy-MM-dd HH:mm" )
+			.format( arguments.value );
+	}
+
+	private string function collectionToList( value ){
+		if ( isNull( arguments.value ) ) {
+			return "";
+		}
+
+		var values = [];
+
+		for ( var item in arguments.value ) {
+			values.append( toString( item ) );
+		}
+
+		return arrayToList( values, ", " );
+	}
+
+	private any function listToJavaArray( string values = "" ){
+		var javaList = createObject( "java", "java.util.ArrayList" ).init();
+
+		for ( var item in listToArray( arguments.values ) ) {
+			if ( len( trim( item ) ) ) {
+				javaList.add( trim( item ) );
+			}
+		}
+
+		return javaList;
+	}
+
+	private boolean function verifyPassword( required string password, required string storedHash ){
+		if ( isNull( arguments.storedHash ) || listLen( arguments.storedHash, "$" ) != 4 ) {
+			return false;
+		}
+
+		var algorithm  = listGetAt( arguments.storedHash, 1, "$" );
+		var iterations = val( listGetAt( arguments.storedHash, 2, "$" ) );
+		var salt       = listGetAt( arguments.storedHash, 3, "$" );
+		var expected   = listGetAt( arguments.storedHash, 4, "$" );
+
+		if ( algorithm != "sha256-iterated" || iterations <= 0 || !len( salt ) || !len( expected ) ) {
+			return false;
+		}
+
+		var digest = arguments.password & ":" & salt;
+
+		for ( var i = 1; i <= iterations; i++ ) {
+			digest = hash( digest, "SHA-256" );
+		}
+
+		return compareNoCase( digest, expected ) == 0;
+	}
+
+	private string function createIndex(
+		required any collection,
+		required string field,
+		required string name,
+		boolean unique = false,
+		boolean sparse = false
+	){
+		var keys    = createObject( "java", "org.bson.Document" ).init( arguments.field, javaCast( "int", 1 ) );
+		var options = createObject( "java", "com.mongodb.client.model.IndexOptions" ).init();
+
+		options.name( arguments.name );
+		options.unique( arguments.unique );
+
+		if ( arguments.sparse ) {
+			options.sparse( true );
+		}
+
+		return arguments.collection.createIndex( keys, options );
+	}
+
+}

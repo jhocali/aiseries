@@ -1,0 +1,436 @@
+<bx:script>
+users      = structKeyExists( prc, "users" ) ? prc.users : [];
+usersError = structKeyExists( prc, "usersError" ) ? prc.usersError : "";
+</bx:script>
+
+<bx:output>
+<style>
+	:root {
+		color-scheme: dark;
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		background: ##070b0f;
+		color: ##f7f0e6;
+		font-family: inherit;
+	}
+
+	button {
+		font: inherit;
+	}
+
+	.users-page {
+		position: relative;
+		min-height: 100vh;
+		overflow: hidden;
+		background: ##05090c;
+	}
+
+	.users-page::before {
+		position: absolute;
+		inset: 0;
+		content: "";
+		background-image:
+			linear-gradient(180deg, rgba(5, 9, 12, 0.9) 0%, rgba(5, 9, 12, 0.58) 46%, rgba(5, 9, 12, 0.94) 100%),
+			linear-gradient(90deg, rgba(5, 9, 12, 0.96) 0%, rgba(5, 9, 12, 0.76) 44%, rgba(5, 9, 12, 0.52) 100%),
+			url("/includes/images/login-background.png");
+		background-position: center;
+		background-size: cover;
+	}
+
+	.users-page::after {
+		position: absolute;
+		inset: 0;
+		content: "";
+		background-image:
+			linear-gradient(rgba(143, 225, 215, 0.055) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(143, 225, 215, 0.045) 1px, transparent 1px);
+		background-size: 70px 70px;
+		mask-image: linear-gradient(to bottom, transparent 0%, black 16%, black 88%, transparent 100%);
+		pointer-events: none;
+	}
+
+	.users-shell {
+		position: relative;
+		z-index: 1;
+		width: min(1280px, calc(100% - 48px));
+		min-height: 100vh;
+		margin: 0 auto;
+		padding: 24px 0 34px;
+	}
+
+	.users-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 18px;
+		min-height: 66px;
+		padding: 12px 14px;
+		border: 1px solid rgba(247, 240, 230, 0.12);
+		border-radius: 8px;
+		background: rgba(5, 9, 12, 0.64);
+		backdrop-filter: blur(18px);
+		box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+	}
+
+	.brand,
+	.nav-actions,
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.brand-mark {
+		display: grid;
+		place-items: center;
+		width: 42px;
+		height: 42px;
+		border: 1px solid rgba(126, 214, 203, 0.46);
+		border-radius: 8px;
+		background: ##112528;
+		color: ##8fe1d7;
+		font-weight: 800;
+	}
+
+	.brand-name,
+	.page-title {
+		margin: 0;
+		color: ##fff8ed;
+		font-weight: 800;
+		letter-spacing: 0;
+	}
+
+	.brand-name {
+		font-size: 30px;
+		line-height: 1;
+	}
+
+	.nav-actions {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+
+	.nav-link,
+	.action-link,
+	.primary-button,
+	.secondary-button,
+	.danger-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 800;
+		text-decoration: none;
+	}
+
+	.nav-link {
+		min-height: 40px;
+		padding: 0 14px;
+		border: 1px solid rgba(247, 240, 230, 0.12);
+		background: rgba(255, 255, 255, 0.035);
+		color: ##d9e7e1;
+		font-size: 14px;
+	}
+
+	.nav-link:hover,
+	.nav-link.active {
+		border-color: rgba(143, 225, 215, 0.48);
+		background: rgba(143, 225, 215, 0.12);
+		color: ##fff8ed;
+	}
+
+	.primary-button,
+	.secondary-button {
+		min-height: 40px;
+		padding: 0 16px;
+		font-size: 14px;
+	}
+
+	.primary-button {
+		border: 1px solid ##8fe1d7;
+		background: ##8fe1d7;
+		color: ##081315;
+		box-shadow: 0 12px 32px rgba(126, 214, 203, 0.18);
+	}
+
+	.secondary-button {
+		border: 1px solid rgba(247, 240, 230, 0.18);
+		background: rgba(255, 255, 255, 0.04);
+		color: ##fff8ed;
+	}
+
+	.users-main {
+		padding-top: 32px;
+	}
+
+	.page-heading {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 18px;
+		margin-bottom: 18px;
+	}
+
+	.page-title {
+		font-size: 32px;
+		line-height: 1.1;
+	}
+
+	.page-copy {
+		margin: 8px 0 0;
+		color: ##bac8c2;
+		font-size: 15px;
+		line-height: 1.55;
+	}
+
+	.alert {
+		margin: 0 0 18px;
+		padding: 12px 14px;
+		border: 1px solid rgba(241, 117, 103, 0.35);
+		border-radius: 8px;
+		background: rgba(83, 34, 31, 0.5);
+		color: ##ffd4cf;
+		font-size: 14px;
+		line-height: 1.45;
+	}
+
+	.table-wrap {
+		overflow-x: auto;
+		border: 1px solid rgba(247, 240, 230, 0.12);
+		border-radius: 8px;
+		background: rgba(5, 9, 12, 0.72);
+		backdrop-filter: blur(18px);
+		box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+	}
+
+	.user-table {
+		width: 100%;
+		min-width: 940px;
+		border-collapse: collapse;
+	}
+
+	.user-table th,
+	.user-table td {
+		padding: 14px 16px;
+		border-bottom: 1px solid rgba(247, 240, 230, 0.09);
+		text-align: left;
+		vertical-align: middle;
+	}
+
+	.user-table th {
+		color: ##8fe1d7;
+		font-size: 12px;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		background: rgba(143, 225, 215, 0.055);
+	}
+
+	.user-table td {
+		color: ##f7f0e6;
+		font-size: 14px;
+	}
+
+	.user-table tbody tr:hover {
+		background: rgba(143, 225, 215, 0.055);
+	}
+
+	.user-table tbody tr:last-child td {
+		border-bottom: 0;
+	}
+
+	.muted {
+		color: ##95a39d;
+	}
+
+	.status-pill {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 26px;
+		min-width: 64px;
+		padding: 0 10px;
+		border: 1px solid rgba(143, 225, 215, 0.26);
+		border-radius: 8px;
+		background: rgba(143, 225, 215, 0.1);
+		color: ##b9fff5;
+		font-size: 12px;
+		font-weight: 800;
+		text-transform: capitalize;
+	}
+
+	.status-pill.off {
+		border-color: rgba(241, 145, 125, 0.3);
+		background: rgba(241, 145, 125, 0.12);
+		color: ##ffd2c8;
+	}
+
+	.row-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.action-link,
+	.danger-button {
+		min-height: 34px;
+		padding: 0 12px;
+		border: 1px solid rgba(247, 240, 230, 0.14);
+		background: rgba(255, 255, 255, 0.04);
+		color: ##fff8ed;
+		font-size: 13px;
+	}
+
+	.action-link:hover,
+	.secondary-button:hover {
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.danger-button {
+		border-color: rgba(241, 145, 125, 0.3);
+		color: ##ffd2c8;
+	}
+
+	.empty-state {
+		padding: 28px;
+		border: 1px solid rgba(247, 240, 230, 0.12);
+		border-radius: 8px;
+		background: rgba(5, 9, 12, 0.72);
+		color: ##bac8c2;
+	}
+
+	.empty-state p {
+		margin: 0;
+	}
+
+	@media (max-width: 780px) {
+		.users-shell {
+			width: min(100% - 28px, 720px);
+			padding: 20px 0;
+		}
+
+		.users-header,
+		.page-heading {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.nav-actions,
+		.toolbar,
+		.nav-link,
+		.primary-button,
+		.users-header form,
+		.users-header .secondary-button {
+			width: 100%;
+		}
+
+		.page-title {
+			font-size: 28px;
+		}
+	}
+</style>
+
+<main class="users-page">
+	<div class="users-shell">
+		<header class="users-header" aria-label="jojo">
+			<div class="brand">
+				<div class="brand-mark" aria-hidden="true">j</div>
+				<h1 class="brand-name">jojo</h1>
+			</div>
+
+			<nav class="nav-actions" aria-label="Primary">
+				<a class="nav-link" href="/">Home</a>
+				<a class="nav-link active" href="/users">Users</a>
+				<a class="nav-link" href="/contacts">Contacts</a>
+				<form method="post" action="/logout">
+					<button class="secondary-button" type="submit">Sign out</button>
+				</form>
+			</nav>
+		</header>
+
+		<section class="users-main" aria-labelledby="users-title">
+			<div class="page-heading">
+				<div>
+					<h2 class="page-title" id="users-title">Users</h2>
+					<p class="page-copy">#arrayLen( users )# account #( arrayLen( users ) == 1 ? 'record' : 'records' )#</p>
+				</div>
+				<div class="toolbar">
+					<a class="primary-button" href="/users/new">Add user</a>
+				</div>
+			</div>
+
+			<bx:if len( usersError )>
+				<div class="alert" role="alert">#encodeForHTML( usersError )#</div>
+			</bx:if>
+
+			<bx:if arrayLen( users )>
+				<div class="table-wrap">
+					<table class="user-table">
+						<thead>
+							<tr>
+								<th scope="col">Username</th>
+								<th scope="col">Email</th>
+								<th scope="col">Name</th>
+								<th scope="col">Roles</th>
+								<th scope="col">Active</th>
+								<th scope="col">Verified</th>
+								<th scope="col">Last login</th>
+								<th scope="col">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							<bx:loop array="#users#" index="user">
+								<tr>
+									<td>#encodeForHTML( user.username )#</td>
+									<td>#encodeForHTML( user.email )#</td>
+									<td>
+										<bx:if len( user.name )>
+											#encodeForHTML( user.name )#
+										<bx:else>
+											<span class="muted">Not set</span>
+										</bx:if>
+									</td>
+									<td>#encodeForHTML( user.roles )#</td>
+									<td>
+										<span class="status-pill #( user.isActive == 'true' ? '' : 'off' )#">#encodeForHTML( user.isActive )#</span>
+									</td>
+									<td>
+										<span class="status-pill #( user.emailVerified == 'true' ? '' : 'off' )#">#encodeForHTML( user.emailVerified )#</span>
+									</td>
+									<td>
+										<bx:if len( user.lastLoginAt )>
+											#encodeForHTML( user.lastLoginAt )#
+										<bx:else>
+											<span class="muted">Never</span>
+										</bx:if>
+									</td>
+									<td>
+										<div class="row-actions">
+											<a class="action-link" href="/users/#encodeForURL( user.id )#/edit">Edit</a>
+											<form method="post" action="/users/#encodeForURL( user.id )#/delete">
+												<button class="danger-button" type="submit">Delete</button>
+											</form>
+										</div>
+									</td>
+								</tr>
+							</bx:loop>
+						</tbody>
+					</table>
+				</div>
+			<bx:else>
+				<div class="empty-state">
+					<p>No user records found.</p>
+				</div>
+			</bx:if>
+		</section>
+	</div>
+</main>
+</bx:output>

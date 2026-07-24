@@ -1,0 +1,101 @@
+class extends="tests.resources.BaseIntegrationSpec" {
+
+	function run(){
+		describe( "Public application routes", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+			} );
+
+			it( "renders the anonymous sign-in page", () => {
+				var event   = this.get( route = "/", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( content ).toInclude( "Sign in" );
+				expect( content ).toInclude( "Welcome back." );
+				expect( content ).toInclude( 'action="/login"' );
+			} );
+
+			it( "keeps protected lists behind the sign-in guard", () => {
+				var event = this.get( route = "/users", renderResults = false );
+
+				expect( hasRelocation( event ) ).toBeTrue();
+				expect( relocationTarget( event ) ).toBe( "Main.index" );
+			} );
+		} );
+
+		describe( "Authentication", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+			} );
+
+			it( "rejects empty credentials before touching MongoDB", () => {
+				var event = this.post(
+					route         = "/login",
+					params        = { "identifier" : "", "password" : "" },
+					renderResults = true
+				);
+
+				expect( event.getStatusCode() ).toBe( 400 );
+				expect( event.getRenderedContent() ).toInclude( "Enter your username or email and password." );
+				expect( variables.mongo.$never( "authenticateUser" ) ).toBeTrue();
+			} );
+
+			it( "shows the Mongo authentication failure message", () => {
+				variables.mongo = installMongoMock( {
+					"authResult" : {
+						"authenticated" : false,
+						"message"       : "Invalid username, email, or password."
+					}
+				} );
+
+				var event = this.post(
+					route         = "/login",
+					params        = { "identifier" : "ada", "password" : "bad-password" },
+					renderResults = true
+				);
+
+				expect( event.getStatusCode() ).toBe( 401 );
+				expect( event.getRenderedContent() ).toInclude( "Invalid username, email, or password." );
+				expect( variables.mongo.$once( "authenticateUser" ) ).toBeTrue();
+			} );
+
+			it( "stores the authenticated user in the session", () => {
+				variables.mongo = installMongoMock( {
+					"authResult" : {
+						"authenticated" : true,
+						"user"          : {
+							"id"            : "507f1f77bcf86cd799439011",
+							"username"      : "ada",
+							"email"         : "ada@example.com",
+							"roles"         : [ "admin" ],
+							"isActive"      : true,
+							"emailVerified" : true
+						}
+					}
+				} );
+
+				var event = this.post(
+					route         = "/login",
+					params        = { "identifier" : "ada", "password" : "correct-password" },
+					renderResults = false
+				);
+
+				expect( session ).toHaveKey( "authUser" );
+				expect( session.authUser.email ).toBe( "ada@example.com" );
+				expect( variables.mongo.$once( "authenticateUser" ) ).toBeTrue();
+				expect( hasRelocation( event ) ).toBeTrue();
+			} );
+
+			it( "clears the authenticated user on logout", () => {
+				signIn();
+
+				var event = this.post( route = "/logout", renderResults = false );
+
+				expect( structKeyExists( session, "authUser" ) ).toBeFalse();
+				expect( hasRelocation( event ) ).toBeTrue();
+			} );
+		} );
+	}
+
+}

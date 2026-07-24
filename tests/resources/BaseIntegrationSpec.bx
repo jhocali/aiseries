@@ -1,0 +1,148 @@
+class extends="coldbox.system.testing.BaseTestCase" appMapping="/app" {
+
+	function resetRequestState(){
+		setup();
+		structDelete( session, "authUser" );
+		variables.mongo = installMongoMock();
+	}
+
+	function installMongoMock( struct overrides = {} ){
+		var mongo          = createStub();
+		var users          = structKeyExists( arguments.overrides, "users" ) ? arguments.overrides.users : [];
+		var contacts       = structKeyExists( arguments.overrides, "contacts" ) ? arguments.overrides.contacts : [];
+		var authResult     = structKeyExists( arguments.overrides, "authResult" )
+			? arguments.overrides.authResult
+			: { "authenticated" : false, "message" : "Invalid username, email, or password." };
+		var userForEdit    = structKeyExists( arguments.overrides, "userForEdit" ) ? arguments.overrides.userForEdit : {};
+		var contactForEdit = structKeyExists( arguments.overrides, "contactForEdit" ) ? arguments.overrides.contactForEdit : {};
+		var pingResult     = structKeyExists( arguments.overrides, "pingResult" ) ? arguments.overrides.pingResult : { "ok" : 1 };
+		var loginSchema    = structKeyExists( arguments.overrides, "loginSchema" )
+			? arguments.overrides.loginSchema
+			: {
+				"collection" : "users",
+				"database"   : "jomongo",
+				"fields"     : [],
+				"indexes"    : [ "_id_", "ux_users_email", "ux_users_username" ]
+			};
+
+		mongo.$( "getDatasourceName", "jomongo" );
+		mongo.$( "getDatabaseName", "jomongo" );
+		mongo.$( "listUsers", users );
+		mongo.$( "listContacts", contacts );
+		mongo.$( "authenticateUser", authResult );
+		mongo.$( "getUserForEdit", userForEdit );
+		mongo.$( "getContactForEdit", contactForEdit );
+		mongo.$( "createUser", "created-user-id" );
+		mongo.$( "updateUser", true );
+		mongo.$( "deleteUser", true );
+		mongo.$( "createContact", "created-contact-id" );
+		mongo.$( "updateContact", true );
+		mongo.$( "deleteContact", true );
+		mongo.$( "ensureLoginCollection", loginSchema );
+
+		if ( structKeyExists( arguments.overrides, "pingThrows" ) && arguments.overrides.pingThrows ) {
+			mongo.$(
+				method         = "ping",
+				throwException = true,
+				throwMessage   = structKeyExists( arguments.overrides, "pingMessage" ) ? arguments.overrides.pingMessage : "Mongo unavailable"
+			);
+		} else {
+			mongo.$( "ping", pingResult );
+		}
+
+		getWireBox().getBinder().forceMap( "MongoService" ).toValue( mongo );
+
+		return mongo;
+	}
+
+	function signIn( struct user = {} ){
+		session.authUser = {
+			"id"            : structKeyExists( arguments.user, "id" ) ? arguments.user.id : "user-1",
+			"username"      : structKeyExists( arguments.user, "username" ) ? arguments.user.username : "admin",
+			"email"         : structKeyExists( arguments.user, "email" ) ? arguments.user.email : "admin@example.com",
+			"roles"         : structKeyExists( arguments.user, "roles" ) ? arguments.user.roles : [ "admin" ],
+			"isActive"      : structKeyExists( arguments.user, "isActive" ) ? arguments.user.isActive : true,
+			"emailVerified" : structKeyExists( arguments.user, "emailVerified" ) ? arguments.user.emailVerified : true
+		};
+	}
+
+	function sampleUsers(){
+		return [
+			{
+				"id"            : "507f1f77bcf86cd799439011",
+				"username"      : "ada",
+				"email"         : "ada@example.com",
+				"firstName"     : "Ada",
+				"lastName"      : "Lovelace",
+				"name"          : "Ada Lovelace",
+				"roles"         : "admin",
+				"permissions"   : "users:write",
+				"isActive"      : "true",
+				"emailVerified" : "true",
+				"lastLoginAt"   : "2026-07-10 08:00",
+				"createdAt"     : "2026-07-10 08:00"
+			}
+		];
+	}
+
+	function sampleContacts(){
+		return [
+			{
+				"id"           : "507f1f77bcf86cd799439012",
+				"firstName"    : "Grace",
+				"lastName"     : "Hopper",
+				"name"         : "Grace Hopper",
+				"mobileNumber" : "555-0100",
+				"address"      : "1 Navy Way",
+				"city"         : "Arlington",
+				"state"        : "VA",
+				"zip"          : "22201",
+				"fullAddress"  : "1 Navy Way, Arlington, VA, 22201",
+				"createdAt"    : "2026-07-10 08:00"
+			}
+		];
+	}
+
+	function userFormFixture(){
+		return {
+			"id"            : "507f1f77bcf86cd799439011",
+			"username"      : "ada",
+			"email"         : "ada@example.com",
+			"firstName"     : "Ada",
+			"lastName"      : "Lovelace",
+			"roles"         : "admin",
+			"permissions"   : "users:write",
+			"isActive"      : true,
+			"emailVerified" : true,
+			"password"      : ""
+		};
+	}
+
+	function contactFormFixture(){
+		return {
+			"id"           : "507f1f77bcf86cd799439012",
+			"firstName"    : "Grace",
+			"lastName"     : "Hopper",
+			"mobileNumber" : "555-0100",
+			"address"      : "1 Navy Way",
+			"city"         : "Arlington",
+			"state"        : "VA",
+			"zip"          : "22201"
+		};
+	}
+
+	function hasRelocation( required any event ){
+		return len( relocationTarget( arguments.event ) ) > 0;
+	}
+
+	function relocationTarget( required any event ){
+		for ( var key in [ "relocate_event", "relocate_uri", "relocate_URI", "relocate_url", "relocate_URL" ] ) {
+			if ( arguments.event.valueExists( key ) ) {
+				return arguments.event.getValue( key );
+			}
+		}
+
+		return "";
+	}
+
+}

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Jojo BoxLang App"
+  short_description: "Workflows for the Jojo ColdBox app"
+  default_prompt: "Use $jojo-boxlang-app to modify the Jojo BoxLang/ColdBox application."
+
+policy:
+  allow_implicit_invocation: true

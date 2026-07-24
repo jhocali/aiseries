@@ -1,0 +1,53 @@
+class extends="tests.resources.BaseIntegrationSpec" {
+
+	function run(){
+		describe( "Mongo diagnostic endpoints", () => {
+			beforeEach( currentSpec => {
+				resetRequestState();
+			} );
+
+			it( "returns a successful ping payload", () => {
+				variables.mongo = installMongoMock( {
+					"pingResult" : { "ok" : 1, "message" : "pong" }
+				} );
+
+				var event   = this.get( route = "/mongo/ping", renderResults = true );
+				var payload = jsonDeserialize( event.getRenderedContent() );
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( payload.connected ).toBeTrue();
+				expect( payload.datasource ).toBe( "jomongo" );
+				expect( payload.database ).toBe( "jomongo" );
+				expect( payload.result.ok ).toBe( 1 );
+				expect( variables.mongo.$once( "ping" ) ).toBeTrue();
+			} );
+
+			it( "returns a 503 ping payload when Mongo throws", () => {
+				variables.mongo = installMongoMock( {
+					"pingThrows"  : true,
+					"pingMessage" : "connection refused"
+				} );
+
+				var event   = this.get( route = "/mongo/ping", renderResults = true );
+				var payload = jsonDeserialize( event.getRenderedContent() );
+
+				expect( event.getStatusCode() ).toBe( 503 );
+				expect( payload.connected ).toBeFalse();
+				expect( payload.message ).toInclude( "connection refused" );
+			} );
+
+			it( "reports login collection metadata", () => {
+				var event   = this.get( route = "/mongo/login-table", renderResults = true );
+				var payload = jsonDeserialize( event.getRenderedContent() );
+
+				expect( event.getStatusCode() ).toBe( 200 );
+				expect( payload.created ).toBeTrue();
+				expect( payload.datasource ).toBe( "jomongo" );
+				expect( payload.schema.collection ).toBe( "users" );
+				expect( payload.schema.indexes ).toContain( "ux_users_email" );
+				expect( variables.mongo.$once( "ensureLoginCollection" ) ).toBeTrue();
+			} );
+		} );
+	}
+
+}

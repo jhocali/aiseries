@@ -1,0 +1,364 @@
+<bx:script>
+formMode    = structKeyExists( prc, "formMode" ) ? prc.formMode : "create";
+formTitle   = structKeyExists( prc, "formTitle" ) ? prc.formTitle : "Contact";
+formAction  = structKeyExists( prc, "formAction" ) ? prc.formAction : "/contacts";
+submitLabel = structKeyExists( prc, "submitLabel" ) ? prc.submitLabel : "Save";
+formError   = structKeyExists( prc, "formError" ) ? prc.formError : "";
+contactForm = structKeyExists( prc, "contactForm" ) ? prc.contactForm : {};
+isEdit      = formMode == "edit";
+</bx:script>
+
+<bx:output>
+<style>
+	:root {
+		color-scheme: dark;
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		background: ##101417;
+		color: ##f5f1e8;
+		font-family: inherit;
+	}
+
+	button,
+	input {
+		font: inherit;
+	}
+
+	.contact-page {
+		position: relative;
+		display: grid;
+		min-height: 100vh;
+		background: ##101417;
+		overflow: hidden;
+	}
+
+	.contact-page::before {
+		position: absolute;
+		inset: 0;
+		content: "";
+		background-image:
+			linear-gradient(90deg, rgba(16, 20, 23, 0.96) 0%, rgba(16, 20, 23, 0.82) 100%),
+			url("/includes/images/login-background.png");
+		background-position: center;
+		background-size: cover;
+	}
+
+	.contact-shell {
+		position: relative;
+		width: min(820px, calc(100% - 32px));
+		margin: 0 auto;
+		padding: 34px 0;
+	}
+
+	.contact-panel {
+		padding: 32px;
+		border: 1px solid rgba(245, 241, 232, 0.14);
+		border-radius: 8px;
+		background: rgba(18, 23, 26, 0.88);
+		box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+		backdrop-filter: blur(20px);
+	}
+
+	.form-header {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: 18px;
+		margin-bottom: 26px;
+	}
+
+	.panel-topbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		margin-bottom: 24px;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.brand-mark {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border: 1px solid rgba(126, 214, 203, 0.46);
+		border-radius: 8px;
+		background: ##142b2c;
+		color: ##7ed6cb;
+		font-weight: 800;
+	}
+
+	.brand-name,
+	.form-title {
+		margin: 0;
+		color: ##fff8ed;
+		letter-spacing: 0;
+	}
+
+	.brand-name {
+		font-size: 28px;
+		line-height: 1;
+		font-weight: 800;
+	}
+
+	.form-title {
+		font-size: 24px;
+		line-height: 1.18;
+		font-weight: 750;
+	}
+
+	.form-copy {
+		margin: 8px 0 0;
+		color: ##bfc7c3;
+		font-size: 15px;
+		line-height: 1.55;
+	}
+
+	.panel-nav {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 36px;
+		padding: 0 12px;
+		border: 1px solid rgba(245, 241, 232, 0.14);
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.04);
+		color: ##d8e5df;
+		font-size: 13px;
+		font-weight: 800;
+		text-decoration: none;
+	}
+
+	.nav-link:hover,
+	.nav-link.active {
+		border-color: rgba(126, 214, 203, 0.46);
+		background: rgba(126, 214, 203, 0.12);
+		color: ##fff8ed;
+	}
+
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 38px;
+		padding: 0 14px;
+		border: 1px solid rgba(245, 241, 232, 0.18);
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.04);
+		color: ##fff8ed;
+		font-size: 13px;
+		font-weight: 800;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.alert {
+		margin: 0 0 20px;
+		padding: 12px 14px;
+		border: 1px solid rgba(241, 117, 103, 0.35);
+		border-radius: 8px;
+		background: rgba(83, 34, 31, 0.5);
+		color: ##ffd4cf;
+		font-size: 14px;
+		line-height: 1.45;
+	}
+
+	.contact-form {
+		display: grid;
+		gap: 18px;
+	}
+
+	.form-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 16px;
+	}
+
+	.field {
+		display: grid;
+		gap: 8px;
+	}
+
+	.field.full {
+		grid-column: 1 / -1;
+	}
+
+	.field label {
+		color: ##efe8d8;
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.field input[type="text"],
+	.field input[type="tel"] {
+		width: 100%;
+		min-height: 46px;
+		padding: 0 13px;
+		border: 1px solid rgba(245, 241, 232, 0.16);
+		border-radius: 8px;
+		outline: none;
+		background: rgba(8, 12, 14, 0.76);
+		color: ##fff8ed;
+	}
+
+	.field input:focus {
+		border-color: ##7ed6cb;
+		box-shadow: 0 0 0 3px rgba(126, 214, 203, 0.14);
+	}
+
+	.form-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 12px;
+		padding-top: 6px;
+	}
+
+	.primary-button,
+	.secondary-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 46px;
+		padding: 0 18px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 800;
+		text-decoration: none;
+	}
+
+	.primary-button {
+		border: 1px solid ##80d9ce;
+		background: ##7ed6cb;
+		color: ##0a1718;
+	}
+
+	.secondary-button {
+		border: 1px solid rgba(245, 241, 232, 0.18);
+		background: rgba(255, 255, 255, 0.04);
+		color: ##fff8ed;
+	}
+
+	@media (max-width: 680px) {
+		.contact-panel {
+			padding: 24px;
+		}
+
+		.panel-topbar,
+		.form-header,
+		.form-actions {
+			display: grid;
+		}
+
+		.form-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.primary-button,
+		.secondary-button,
+		.panel-nav,
+		.nav-link,
+		.back-link {
+			width: 100%;
+		}
+	}
+</style>
+
+<main class="contact-page">
+	<div class="contact-shell">
+		<section class="contact-panel" aria-labelledby="contact-form-title">
+			<div class="panel-topbar">
+				<div class="brand">
+					<div class="brand-mark" aria-hidden="true">j</div>
+					<h1 class="brand-name">jojo</h1>
+				</div>
+
+				<nav class="panel-nav" aria-label="Primary">
+					<a class="nav-link" href="/">Home</a>
+					<a class="nav-link" href="/users">Users</a>
+					<a class="nav-link active" href="/contacts">Contacts</a>
+				</nav>
+			</div>
+
+			<div class="form-header">
+				<div>
+					<h2 class="form-title" id="contact-form-title">#encodeForHTML( formTitle )#</h2>
+					<p class="form-copy">#( isEdit ? 'Update contact details.' : 'Create a new contact record.' )#</p>
+				</div>
+				<a class="back-link" href="/contacts">Back</a>
+			</div>
+
+			<bx:if len( formError )>
+				<div class="alert" role="alert">#encodeForHTML( formError )#</div>
+			</bx:if>
+
+			<form class="contact-form" method="post" action="#encodeForHTMLAttribute( formAction )#">
+				<bx:if isEdit>
+					<input name="id" type="hidden" value="#encodeForHTMLAttribute( contactForm.id )#">
+				</bx:if>
+
+				<div class="form-grid">
+					<div class="field">
+						<label for="firstName">First Name</label>
+						<input id="firstName" name="firstName" type="text" value="#encodeForHTMLAttribute( contactForm.firstName )#" required>
+					</div>
+
+					<div class="field">
+						<label for="lastName">Last Name</label>
+						<input id="lastName" name="lastName" type="text" value="#encodeForHTMLAttribute( contactForm.lastName )#" required>
+					</div>
+
+					<div class="field full">
+						<label for="mobileNumber">Mobile Number</label>
+						<input id="mobileNumber" name="mobileNumber" type="tel" value="#encodeForHTMLAttribute( contactForm.mobileNumber )#" required>
+					</div>
+
+					<div class="field full">
+						<label for="address">Address</label>
+						<input id="address" name="address" type="text" value="#encodeForHTMLAttribute( contactForm.address )#" required>
+					</div>
+
+					<div class="field">
+						<label for="city">City</label>
+						<input id="city" name="city" type="text" value="#encodeForHTMLAttribute( contactForm.city )#" required>
+					</div>
+
+					<div class="field">
+						<label for="state">State</label>
+						<input id="state" name="state" type="text" value="#encodeForHTMLAttribute( contactForm.state )#" required>
+					</div>
+
+					<div class="field">
+						<label for="zip">Zip</label>
+						<input id="zip" name="zip" type="text" value="#encodeForHTMLAttribute( contactForm.zip )#" required>
+					</div>
+				</div>
+
+				<div class="form-actions">
+					<a class="secondary-button" href="/contacts">Cancel</a>
+					<button class="primary-button" type="submit">#encodeForHTML( submitLabel )#</button>
+				</div>
+			</form>
+		</section>
+	</div>
+</main>
+</bx:output>

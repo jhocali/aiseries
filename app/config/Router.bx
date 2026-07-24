@@ -1,0 +1,54 @@
+/**
+ * This is your application router.  From here you can controll all the incoming routes to your application.
+ *
+ * https://coldbox.ortusbooks.com/the-basics/routing
+ */
+class {
+
+	function configure(){
+		/**
+		 * --------------------------------------------------------------------------
+		 * App Routes
+		 * --------------------------------------------------------------------------
+		 * Here is where you can register the routes for your web application!
+		 * Go get Funky!
+		 */
+
+		// A nice healthcheck route example
+		route( "/healthcheck", function( event, rc, prc ){
+			return "Ok!";
+		} );
+
+		// A nice RESTFul Route example
+		route( "/api/echo", function( event, rc, prc ){
+			return { "error" : false, "data" : "Welcome to my awesome API!" };
+		} );
+
+		route( "/mongo/ping" ).to( "main.mongoPing" );
+		route( "/mongo/login-table" ).to( "main.loginTable" );
+		post( "/login", "Main.login" );
+		post( "/logout", "Main.logout" );
+		get( "/users/new", "Main.newUser" );
+		get( "/users/:id/edit", "Main.editUser" );
+		post( "/users/:id/delete", "Main.deleteUser" );
+		post( "/users/:id", "Main.updateUser" );
+		route( "/users" )
+			.valuePairTranslation( false )
+			.withAction( { get : "userList", post : "createUser" } )
+			.toHandler( "Main" );
+		get( "/contacts/new", "Main.newContact" );
+		get( "/contacts/:id/edit", "Main.editContact" );
+		post( "/contacts/:id/delete", "Main.deleteContact" );
+		post( "/contacts/:id", "Main.updateContact" );
+		route( "/contacts" )
+			.valuePairTranslation( false )
+			.withAction( { get : "contactList", post : "createContact" } )
+			.toHandler( "Main" );
+
+		// @app_routes@
+
+		// Conventions-Based Routing
+		route( ":handler/:action?" ).end();
+	}
+
+}

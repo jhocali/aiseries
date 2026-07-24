@@ -1,0 +1,15 @@
+<bx:output>
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="jojo">
+	<base href="#event.getHTMLBaseURL()#" />
+	<title>jojo</title>
+</head>
+<body>
+	#view()#
+</body>
+</html>
+</bx:output>
