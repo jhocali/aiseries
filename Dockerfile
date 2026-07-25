@@ -27,6 +27,7 @@ WORKDIR ${APP_DIR}
 # layer remains cacheable when source files change.
 COPY box.json ./
 RUN box install --production
+RUN test -f lib/coldbox/system/logging/appenders/ConsoleAppender.cfc
 
 COPY app ./app
 COPY public ./public
