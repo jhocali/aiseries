@@ -31,10 +31,15 @@ class{
 	 * --------------------------------------------------------------------------
 	 * Location Mappings
 	 * --------------------------------------------------------------------------
-	 * These are pre-defined in the runtime/config/boxlang.json so they can
-	 * be reused.  You can change them here if you want.
+	 * Define application-local mappings explicitly so ColdBox discovery uses
+	 * the same absolute paths in CommandBox, tests, and production containers.
 	 */
 	_publicRoot = getDirectoryFromPath( getCurrentTemplatePath() );
+	_projectRoot = getDirectoryFromPath( left( _publicRoot, len( _publicRoot ) - 1 ) );
+	this.mappings = {
+		"/app"     : _projectRoot & "app",
+		"/coldbox" : _projectRoot & "lib/coldbox"
+	};
 
 	/**
 	 * --------------------------------------------------------------------------
