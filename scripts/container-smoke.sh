@@ -9,6 +9,32 @@ finish() {
   result=$?
 
   if [[ ${result} -ne 0 && -n ${container_id} ]]; then
+    echo "Container runtime diagnostics:" >&2
+    docker exec "${container_id}" /bin/bash -lc '
+      set +e
+      printf "Identity: "
+      id
+      printf "Working directory: "
+      pwd
+      printf "CommandBox: "
+      command -v box || true
+      printf "BoxLang executable: "
+      command -v boxlang || true
+      box version || true
+      box server status || true
+      stat -c "%A %U:%G %n" \
+        /app \
+        /app/lib \
+        /app/lib/coldbox \
+        /app/lib/coldbox/system/logging/appenders \
+        /app/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc || true
+      find /app/lib/coldbox/system/logging/appenders \
+        -maxdepth 1 \
+        -type f \
+        -printf "%f\n" \
+        -quit || true
+      sha256sum /app/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc || true
+    ' >&2 || true
     docker logs --tail 200 "${container_id}" || true
   fi
 
