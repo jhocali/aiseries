@@ -11,39 +11,39 @@
     "sessionStorage": "memory",
     "mappings": {
         "/app": {
-            "path": "${user-dir}/app",
+            "path": "${env.APP_DIR:/app}/app",
             "external": false
         },
         "/public": {
-            "path": "${user-dir}/public",
+            "path": "${env.APP_DIR:/app}/public",
             "external": false
         },
         "/coldbox": {
-            "path": "${user-dir}/lib/coldbox",
+            "path": "${env.APP_DIR:/app}/lib/coldbox",
             "external": false
         },
         "/modules": {
-            "path": "${user-dir}/lib/modules",
+            "path": "${env.APP_DIR:/app}/lib/modules",
             "external": false
         }
     },
     "modulesDirectory": [
-        "${user-dir}/boxlang_modules",
+        "${env.APP_DIR:/app}/boxlang_modules",
         "${boxlang-home}/modules",
-        "${user-dir}/runtime/modules"
+        "${env.APP_DIR:/app}/runtime/modules"
     ],
     "customComponentsDirectory": [
         "${boxlang-home}/global/components",
-        "${user-dir}/runtime/global/components"
+        "${env.APP_DIR:/app}/runtime/global/components"
     ],
     "classPaths": [
         "${boxlang-home}/global/classes",
-        "${user-dir}/runtime/global/classes",
-        "${user-dir}/lib/coldbox/system/logging/appenders"
+        "${env.APP_DIR:/app}/runtime/global/classes",
+        "${env.APP_DIR:/app}/lib/coldbox/system/logging/appenders"
     ],
     "javaLibraryPaths": [
         "${boxlang-home}/lib",
-        "${user-dir}/lib/java"
+        "${env.APP_DIR:/app}/lib/java"
     ],
     "logging": {
         "logsDirectory": "${java-temp}/jojo-logs",

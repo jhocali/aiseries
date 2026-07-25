@@ -2,7 +2,7 @@
     "name": "jojo-production",
     "profile": "production",
     "app": {
-        "cfengine": "boxlang@1.15.0",
+        "cfengine": "boxlang@1.14.0",
         "engineConfigFile": "./runtime/boxlang.production.json"
     },
     "jvm": {

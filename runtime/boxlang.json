@@ -81,8 +81,7 @@
 	// A collection of directories to lookup box classes in (.bx files), they must be absolute paths
 	"classPaths": [
 		"${boxlang-home}/global/classes",
-		"${user-dir}/runtime/global/classes",
-		"${user-dir}/lib/coldbox/system/logging/appenders"
+		"${user-dir}/runtime/global/classes"
 	],
 	// A collection of directories we will class load all Java *.jar files from
 	"javaLibraryPaths": [
