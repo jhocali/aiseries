@@ -19,7 +19,7 @@ Azure Container Apps Consumption is the selected low-traffic cloud target. The C
 | `Dockerfile` | Builds the production OCI image from a pinned CommandBox/BoxLang base image. |
 | `.dockerignore` | Excludes source-control metadata, tests, docs, local databases, logs, and secrets from the image context. |
 | `server.production.json` | Pins the ColdBox production environment, blocks internal paths, and maps server errors to a generic page. |
-| `runtime/boxlang.production.json` | Enables production caches and JSON console logging without test mappings. |
+| `runtime/boxlang.production.json` | Enables production caches and JSON console logging without test mappings, and registers ColdBox's appender directory for LogBox's unqualified appender lookup. |
 | `deploy/compose.production.yml` | Runs one immutable Jojo image with a file-mounted MongoDB URI. |
 | `deploy/deploy.ps1` | Validates Compose, pulls the image, starts it, waits for health, and prints diagnostics on failure. |
 | `deploy/azure/main.bicep` | Defines the Consumption environment, scale-to-zero Container App, secret, ingress, probes, and one-replica limit. |

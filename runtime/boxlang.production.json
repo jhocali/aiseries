@@ -38,7 +38,8 @@
     ],
     "classPaths": [
         "${boxlang-home}/global/classes",
-        "${user-dir}/runtime/global/classes"
+        "${user-dir}/runtime/global/classes",
+        "${user-dir}/lib/coldbox/system/logging/appenders"
     ],
     "javaLibraryPaths": [
         "${boxlang-home}/lib",
