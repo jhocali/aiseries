@@ -2,7 +2,7 @@
     "debugMode": false,
     "clearClassFilesOnStartup": false,
     "classResolverCache": true,
-    "trustedCache": false,
+    "trustedCache": true,
     "timezone": "${env.APP_TIMEZONE:UTC}",
     "whitespaceCompressionEnabled": true,
     "applicationTimeout": "0,0,0,0",

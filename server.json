@@ -1,7 +1,7 @@
 {
     "name":"jojo",
     "app":{
-        "cfengine":"boxlang@1.14.0",
+        "cfengine":"boxlang@1.15.0",
         "engineConfigFile":"./runtime/boxlang.json"
     },
     "jvm":{

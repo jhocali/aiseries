@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BOXLANG_CFENGINE: boxlang@1.14.0
+  BOXLANG_CFENGINE: boxlang@1.15.0
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
