@@ -1,0 +1,108 @@
+name: Deploy Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: GHCR image tag produced by the build workflow
+        required: true
+        default: main
+        type: string
+
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+env:
+  AZURE_CORE_OUTPUT: none
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'jojo-production' }}
+  LOCATION: ${{ vars.AZURE_LOCATION || 'centralus' }}
+  CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME || 'jojo' }}
+  CONTAINER_ENVIRONMENT_NAME: ${{ vars.AZURE_CONTAINER_ENVIRONMENT_NAME || 'jojo-environment' }}
+  IMAGE: ghcr.io/${{ github.repository }}:${{ inputs.image_tag }}
+  MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+jobs:
+  deploy:
+    name: Deploy Container App
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out deployment definition
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /deploy/azure/
+
+      - name: Require deployment configuration
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          for variable_name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID MONGODB_URI; do
+            if [[ -z "${!variable_name}" ]]; then
+              echo "Required production configuration is missing: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create resource group
+        run: az group create --name "${RESOURCE_GROUP}" --location "${LOCATION}"
+
+      - name: Register Container Apps provider
+        run: az provider register --namespace Microsoft.App --wait
+
+      - name: Deploy Container App
+        id: deploy
+        run: |
+          app_url="$(
+            az deployment group create \
+              --name "jojo-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --resource-group "${RESOURCE_GROUP}" \
+              --template-file deploy/azure/main.bicep \
+              --parameters \
+                location="${LOCATION}" \
+                containerAppName="${CONTAINER_APP_NAME}" \
+                environmentName="${CONTAINER_ENVIRONMENT_NAME}" \
+                image="${IMAGE}" \
+                mongodbUri="${MONGODB_URI}" \
+              --query properties.outputs.applicationUrl.value \
+              --output tsv
+          )"
+          echo "app_url=${app_url}" >>"${GITHUB_OUTPUT}"
+          echo "### Azure deployment" >>"${GITHUB_STEP_SUMMARY}"
+          echo "" >>"${GITHUB_STEP_SUMMARY}"
+          echo "- Image: \`${IMAGE}\`" >>"${GITHUB_STEP_SUMMARY}"
+          echo "- URL: ${app_url}" >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Verify production health
+        env:
+          APP_URL: ${{ steps.deploy.outputs.app_url }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if response="$(curl --fail --silent --show-error --max-time 10 "${APP_URL}/healthcheck")" &&
+              [[ "${response}" == "Ok!" ]]; then
+              echo "Production health check passed at ${APP_URL}/healthcheck"
+              exit 0
+            fi
+
+            echo "Waiting for Container Apps revision (${attempt}/30)..."
+            sleep 10
+          done
+
+          echo "Production did not return the expected health response." >&2
+          exit 1

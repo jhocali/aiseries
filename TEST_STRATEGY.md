@@ -48,8 +48,12 @@
 Run from `C:\BoxLang\jojo`.
 
 ```powershell
+..\box.exe server start
+..\box.exe server status
 ..\box.exe testbox run
 ```
+
+The TestBox CLI resolves the runner URL from the CommandBox server. If the server is stopped, the test command can report `connection refused`; start the server and confirm its actual URL first.
 
 If CommandBox cannot access `C:\Users\gmateo\.CommandBox` from the sandbox, rerun the same command with approval/escalation.
 

@@ -22,6 +22,16 @@ class extends="tests.resources.BaseIntegrationSpec" {
 				expect( hasRelocation( event ) ).toBeTrue();
 				expect( relocationTarget( event ) ).toBe( "Main.index" );
 			} );
+
+			it( "returns a generic 404 for an unknown route", () => {
+				var event   = this.get( route = "/not-a-route", renderResults = true );
+				var content = event.getRenderedContent();
+
+				expect( event.getStatusCode() ).toBe( 404 );
+				expect( content ).toInclude( "Page not found." );
+				expect( content ).notToInclude( "EventHandlerNotRegisteredException" );
+				expect( content ).notToInclude( "Stacktrace" );
+			} );
 		} );
 
 		describe( "Authentication", () => {

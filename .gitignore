@@ -10,6 +10,13 @@ build/**
 .engine/**
 .cbfs/**
 docker/.db/**
+.mongo/**
+mongo-test-write/**
+mongodb-runtime/**
+mongodb-extract.log
+mongodb-install*.log
+deploy/.env.production
+deploy/secrets/**
 
 # Vite
 /public/includes/build/**

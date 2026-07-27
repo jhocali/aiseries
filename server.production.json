@@ -1,0 +1,34 @@
+{
+    "name": "jojo-production",
+    "profile": "production",
+    "app": {
+        "cfengine": "boxlang@1.14.0",
+        "engineConfigFile": "./runtime/boxlang.production.json"
+    },
+    "jvm": {
+        "javaVersion": "openjdk21_jre",
+        "args": [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.awt.headless=true",
+            "-DENVIRONMENT=production",
+            "-DSESSION_COOKIE_SECURE=true"
+        ]
+    },
+    "web": {
+        "host": "0.0.0.0",
+        "webroot": "public",
+        "errorPages": {
+            "default": "/error.html"
+        },
+        "rules": [
+            "path-prefix( { '/tests','/testbox','/app','/lib','/runtime','/deploy','/scripts','/.github' } ) -> { set-error( 404 ); done }"
+        ],
+        "rewrites": {
+            "enable": true
+        }
+    },
+    "scripts": {
+        "onServerInitialInstall": "install bx-esapi"
+    },
+    "openbrowser": false
+}

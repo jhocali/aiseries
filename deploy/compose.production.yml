@@ -1,0 +1,40 @@
+name: jojo
+
+services:
+  jojo:
+    image: ${JOJO_IMAGE:?Set JOJO_IMAGE to an immutable GHCR tag or digest}
+    init: true
+    restart: unless-stopped
+    environment:
+      APPNAME: Jojo
+      APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
+      BOXLANG_DEBUG: "false"
+      BOX_SERVER_PROFILE: production
+      ENVIRONMENT: production
+      HEALTHCHECK_URI: http://127.0.0.1:8080/healthcheck
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_MEMORY: ${MAX_MEMORY:-512m}
+      MIN_MEMORY: ${MIN_MEMORY:-256m}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-jomongo}
+      MONGODB_DATASOURCE: ${MONGODB_DATASOURCE:-jomongo}
+      MONGODB_URI_FILE: /run/secrets/mongodb_uri
+      PORT: "8080"
+      SESSION_TIMEOUT: ${SESSION_TIMEOUT:-0,0,30,0}
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    secrets:
+      - mongodb_uri
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+secrets:
+  mongodb_uri:
+    file: ${MONGODB_URI_SECRET_FILE:?Set MONGODB_URI_SECRET_FILE to a protected file}

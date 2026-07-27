@@ -16,6 +16,14 @@ class{
 	this.sessionTimeout       = createTimespan( 0, 1, 0, 0 );
 	this.setClientCookies     = true;
 	this.setDomainCookies     = true;
+	this.sessionCookie        = {
+		httpOnly     : true,
+		secure       : compareNoCase(
+			toString( getSystemSetting( "SESSION_COOKIE_SECURE", "false" ) ),
+			"true"
+		) == 0,
+		sameSiteMode : "Lax"
+	};
 	this.timezone             = "UTC";
 	this.whiteSpaceManagement = "smart";
 
@@ -44,7 +52,7 @@ class{
 	// OR "/yourApp" IF YOUR APP IS IN A SUBFOLDER
 	COLDBOX_WEB_MAPPING   = "/"
 	// COLDBOX PROPERTIES
-	COLDBOX_CONFIG_FILE   = ""
+	COLDBOX_CONFIG_FILE   = "config.Coldbox"
 	// COLDBOX APPLICATION KEY OVERRIDE
 	COLDBOX_APP_KEY       = ""
 	// By default if an app is reiniting and a request hits it, we will fail fast with a message

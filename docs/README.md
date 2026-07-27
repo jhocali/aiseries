@@ -11,6 +11,7 @@ Planning documents:
 Maintenance and assessment documents:
 
 - `BROWNFIELD_CODE_COMPREHENSION.md`: architecture map, request flows, ownership boundaries, and change patterns.
+- `DEPLOYMENT.md`: production image, Compose infrastructure, CI/release automation, rollback, and troubleshooting runbook.
 - `REFACTORING_ROADMAP.md`: staged refactoring plan with safety gates and test expectations.
 - `SECURITY_REVIEW.md`: current threat model, observed controls, risks, and hardening backlog.
 - `DOCUMENTATION_GUIDE.md`: documentation conventions and checklists for future changes.
