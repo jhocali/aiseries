@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/jhocali/aiseries"
 
-ENV APP_DIR=/app \
+ENV APP_DIR=/opt/jojo \
     APPNAME=Jojo \
     BOXLANG_DEBUG=false \
     BOX_SERVER_APP_CFENGINE=boxlang@1.14.0 \
