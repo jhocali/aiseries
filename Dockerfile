@@ -38,6 +38,8 @@ COPY server.production.json ./server.json
 # Resolve the BoxLang engine and server modules during the image build instead
 # of downloading them during a production start.
 RUN ${BUILD_DIR}/util/warmup-server.sh
+RUN box install bx-esapi@1.9.0+13 \
+    && test -f /usr/local/lib/serverHome/WEB-INF/boxlang/modules/bx-esapi/libs/bx-esapi-1.9.0.jar
 
 EXPOSE 8080
 

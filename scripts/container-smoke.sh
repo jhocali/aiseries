@@ -23,17 +23,17 @@ finish() {
       box version || true
       box server status || true
       stat -c "%A %U:%G %n" \
-        /app \
-        /app/lib \
-        /app/lib/coldbox \
-        /app/lib/coldbox/system/logging/appenders \
-        /app/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc || true
-      find /app/lib/coldbox/system/logging/appenders \
+        "${APP_DIR}" \
+        "${APP_DIR}/lib" \
+        "${APP_DIR}/lib/coldbox" \
+        "${APP_DIR}/lib/coldbox/system/logging/appenders" \
+        "${APP_DIR}/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc" || true
+      find "${APP_DIR}/lib/coldbox/system/logging/appenders" \
         -maxdepth 1 \
         -type f \
         -printf "%f\n" \
         -quit || true
-      sha256sum /app/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc || true
+      sha256sum "${APP_DIR}/lib/coldbox/system/logging/appenders/ConsoleAppender.cfc" || true
     ' >&2 || true
     docker logs --tail 200 "${container_id}" || true
   fi
@@ -82,6 +82,14 @@ for _ in $(seq 1 60); do
 
     if [[ ${missing_body} =~ (Stacktrace|EventHandlerNotRegisteredException|/app/handlers) ]]; then
       echo "Production 404 response exposes diagnostic details." >&2
+      exit 1
+    fi
+
+    home_body="$(curl --silent --show-error "http://127.0.0.1:${host_port}/")"
+    home_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${host_port}/")"
+
+    if [[ ${home_status} != "200" || ${home_body} != *'<h2 class="panel-title" id="login-title">Sign in</h2>'* ]]; then
+      echo "Production image did not render the anonymous sign-in page." >&2
       exit 1
     fi
 
