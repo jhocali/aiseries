@@ -24,7 +24,7 @@ Azure Container Apps Consumption is the selected low-traffic cloud target. The C
 | `deploy/deploy.ps1` | Validates Compose, pulls the image, starts it, waits for health, and prints diagnostics on failure. |
 | `deploy/azure/main.bicep` | Defines the Consumption environment, scale-to-zero Container App, secret, ingress, probes, and one-replica limit. |
 | `deploy/azure/deploy.ps1` | Deploys the Bicep definition from an authenticated Azure CLI session and verifies `/healthcheck`. |
-| `.github/workflows/build-release.yml` | Tests, validates Bicep, builds and smoke-tests the image, publishes GHCR images, and creates tagged releases. |
+| `.github/workflows/build-release.yml` | Reviews dependencies and source quality, tests, validates Bicep, builds and smoke-tests the image, publishes GHCR images, and creates tagged releases. |
 | `.github/workflows/deploy-azure.yml` | Manually deploys a published GHCR image to Azure through GitHub OIDC and verifies production health. |
 
 ## Initial Host Setup
@@ -64,15 +64,25 @@ The default port mapping is `127.0.0.1:8080`. Keep it on loopback when a same-ho
 
 The GitHub workflow runs on pull requests, pushes to `main`, manual dispatches, and tags matching `v*.*.*`.
 
+- Every pull request checks changed BoxLang/CFML files with the pinned BoxLang 1.14.0 formatter and runs shell syntax, tracked-secret/local-data, and unresolved-conflict checks through `scripts/ci-review.sh`. Legacy source is formatted incrementally when touched instead of forcing a repository-wide rewrite.
+- Every pull request reviews dependency changes and fails for newly introduced vulnerabilities rated moderate or higher.
 - Every run installs Java 21 and the official CommandBox CLI directly on the Ubuntu runner, then starts CommandBox explicitly before invoking TestBox. Test execution is intentionally separate from the production container runtime configuration.
 - Every run compiles `deploy/azure/main.bicep` before an image can be built.
-- CI uses sparse checkouts so committed local MongoDB files are not copied into hosted runners.
+- Test, infrastructure, and image jobs use sparse checkouts so local-only files are not copied into those job workspaces.
 - Pull requests build and smoke-test the production image without publishing it.
+- The final pull-request check is named `CI review`; configure the `main` branch ruleset to require this check before merge.
 - Pushes to `main` publish branch and commit-SHA tags to `ghcr.io/<owner>/<repository>`.
 - A tag such as `v1.2.3` publishes `1.2.3`, `1.2`, and SHA tags, then creates GitHub release notes.
 - The image includes BuildKit provenance and an SBOM.
 
 Repository Actions permissions must allow packages to be written with `GITHUB_TOKEN`. GHCR package visibility is managed separately from repository visibility.
+
+Run the review checks locally before opening a pull request:
+
+```powershell
+..\box.exe install
+bash scripts/ci-review.sh
+```
 
 ## Azure Container Apps
 

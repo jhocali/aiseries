@@ -67,7 +67,9 @@ Invoke-WebRequest -UseBasicParsing -Uri <server-url>/healthcheck
 
 ## Definition Of Done
 
+- `bash scripts/ci-review.sh` passes, including changed-source formatting, shell syntax, repository-hygiene, and conflict-marker checks.
 - New routes have at least one request-level test for the happy path and the primary failure/guard path.
 - Form changes update validation tests and rendered-form assertions.
 - Mongo field changes update service mapping, list/form rendering, and test fixtures together.
 - Failing tests describe user-facing behavior rather than framework internals whenever possible.
+- Pull requests pass the aggregate GitHub `CI review` check before merge.
