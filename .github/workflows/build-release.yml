@@ -14,11 +14,64 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  BOXLANG_VERSION: "1.14.0"
   BOXLANG_CFENGINE: boxlang@1.14.0
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  quality:
+    name: Quality review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out review inputs
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up CommandBox
+        uses: Ortus-Solutions/setup-commandbox@v2.0.1
+        with:
+          version: 6.3.1
+
+      - name: Install review dependencies
+        run: box install
+
+      - name: Pin the review formatter runtime
+        run: box config set modules.commandbox-boxlang.CLIBoxLangVersion="${BOXLANG_VERSION}"
+
+      - name: Run review checks
+        env:
+          CI_REVIEW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/ci-review.sh
+
+  dependency_review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out dependency manifests
+        uses: actions/checkout@v6
+
+      - name: Review pull request dependencies
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate
+
+      - name: Mark dependency review not applicable
+        if: github.event_name != 'pull_request'
+        run: echo "Dependency diff review applies only to pull requests."
+
   test:
     name: TestBox
     runs-on: ubuntu-latest
@@ -76,6 +129,8 @@ jobs:
   image:
     name: Build OCI image
     needs:
+      - quality
+      - dependency_review
       - test
       - infrastructure
     runs-on: ubuntu-latest
@@ -143,6 +198,49 @@ jobs:
       - name: Smoke-test pull request image
         if: github.event_name == 'pull_request'
         run: bash scripts/container-smoke.sh "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+
+  review:
+    name: CI review
+    if: always() && github.event_name == 'pull_request'
+    needs:
+      - quality
+      - dependency_review
+      - test
+      - infrastructure
+      - image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require every review check
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependency_review.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          INFRASTRUCTURE_RESULT: ${{ needs.infrastructure.result }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+        run: |
+          failed=0
+
+          for check in \
+            "Quality review:${QUALITY_RESULT}" \
+            "Dependency review:${DEPENDENCY_RESULT}" \
+            "TestBox:${TEST_RESULT}" \
+            "Azure infrastructure:${INFRASTRUCTURE_RESULT}" \
+            "OCI image smoke:${IMAGE_RESULT}"; do
+            name="${check%%:*}"
+            result="${check#*:}"
+            echo "${name}: ${result}"
+
+            if [[ "${result}" != "success" ]]; then
+              failed=1
+            fi
+          done
+
+          if [[ "${failed}" -ne 0 ]]; then
+            echo "One or more required pull request checks did not pass." >&2
+            exit 1
+          fi
 
   release:
     name: Create GitHub release
